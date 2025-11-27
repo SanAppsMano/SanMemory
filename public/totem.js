@@ -4,15 +4,13 @@ let startTime = null, timerInterval = null;
 let totalCardsCurrent = 12;
 let scoresCurrent = { 1: 0, 2: 0 };
 
-// cache de imagens das cartas
 const cardImages = {};
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
-    img.src = "cards/" + value + ".jpg";
+    img.src = "cards/" + value + ".jpg"; // usa JPG
     img.onload = () => {
-      // quando carregar alguma imagem, redesenha o tabuleiro
       draw();
     };
     cardImages[value] = img;
@@ -67,14 +65,24 @@ function resetHUD() {
 }
 
 function renderQRs() {
-  new QRious({
+  const QRClass =
+    (window.QRious && window.QRious.QRious)
+      ? window.QRious.QRious
+      : window.QRious;
+
+  if (!QRClass) {
+    console.error("QRious não carregado");
+    return;
+  }
+
+  new QRClass({
     element: document.getElementById("qr1"),
     value: location.origin + "/controller.html?player=1&room=" + room,
     size: 130
   });
 
   if (modeSelected === "multi") {
-    new QRious({
+    new QRClass({
       element: document.getElementById("qr2"),
       value: location.origin + "/controller.html?player=2&room=" + room,
       size: 130
@@ -148,7 +156,6 @@ function draw() {
       if (img && img.complete) {
         ctx.drawImage(img, x, y, cw, ch);
       } else {
-        // fallback: mostra o número enquanto a imagem não carregou
         ctx.fillStyle = "#fff";
         ctx.font = Math.floor(ch * 0.4) + "px Arial";
         ctx.textAlign = "center";
