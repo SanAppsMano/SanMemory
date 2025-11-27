@@ -1,12 +1,12 @@
 // public/ws-resilient.js
 (function () {
   const DEFAULT_OPTIONS = {
-    heartbeatInterval: 10000,   // 10s: envia ping
-    watchdogInterval: 5000,     // 5s: checa se está "parado"
-    inactivityTimeout: 25000,   // 25s sem mensagem => força reconnect
+    heartbeatInterval: 10000,
+    watchdogInterval: 5000,
+    inactivityTimeout: 25000,
     initialReconnectDelay: 1000,
     maxReconnectDelay: 10000,
-    maxRetries: Infinity        // pode limitar se quiser
+    maxRetries: Infinity
   };
 
   function createResilientWebSocket(url, handlers = {}, options = {}) {
@@ -72,7 +72,6 @@
       ws.onmessage = (ev) => {
         lastActivity = Date.now();
 
-        // Ignora nosso ping interno se o servidor ecoar
         try {
           const data = JSON.parse(ev.data);
           if (data && data.type === "__pong") return;
@@ -94,7 +93,10 @@
 
         retries += 1;
         setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 2, opts.maxReconnectDelay);
+        reconnectDelay = Math.min(
+          reconnectDelay * 2,
+          opts.maxReconnectDelay
+        );
       };
     }
 
@@ -108,7 +110,10 @@
         if (retries >= opts.maxRetries) return;
         retries += 1;
         setTimeout(connect, reconnectDelay);
-        reconnectDelay = Math.min(reconnectDelay * 2, opts.maxReconnectDelay);
+        reconnectDelay = Math.min(
+          reconnectDelay * 2,
+          opts.maxReconnectDelay
+        );
       }
     }
 
