@@ -2,7 +2,7 @@ body{
   margin:0;
   background:#111;
   color:#fff;
-  font-family:Arial;
+  font-family:Arial,system-ui,-apple-system;
 }
 .container{
   width:100%;
@@ -14,12 +14,16 @@ body{
 button{
   padding:12px 20px;
   border:0;
-  border-radius:8px;
+  border-radius:10px;
   background:#0061ff;
   color:white;
   font-size:18px;
   width:100%;
   margin:6px 0;
+  font-weight:600;
+}
+button:active{
+  transform:scale(0.98);
 }
 .badge{
   display:inline-block;
@@ -35,6 +39,7 @@ canvas{
   border-radius:12px;
 }
 
+/* HUD de tempo/placar */
 #hud{
   display:flex;
   justify-content:space-between;
@@ -57,4 +62,60 @@ canvas{
 #scoreMobile{
   font-size:14px;
   margin-top:8px;
+}
+
+/* Área dos QR Codes */
+#qr-section{
+  margin-top:10px;
+}
+.qr-grid{
+  display:flex;
+  justify-content:center;
+  gap:14px;
+  flex-wrap:wrap;
+}
+.qr-card{
+  background:#181818;
+  border-radius:14px;
+  padding:10px 10px 12px;
+  border:1px solid #333;
+  min-width:140px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  box-shadow:0 8px 18px rgba(0,0,0,0.45);
+}
+.qr-label{
+  font-size:13px;
+  font-weight:600;
+  margin-bottom:6px;
+}
+.qr-box{
+  background:#000;
+  border-radius:10px;
+  padding:6px;
+}
+.qr-box canvas{
+  display:block;
+  max-width:130px;
+  max-height:130px;
+}
+.qr-hint{
+  font-size:12px;
+  opacity:.7;
+  margin-top:8px;
+}
+
+/* Responsivo */
+@media (max-width:480px){
+  .container{
+    padding:10px;
+  }
+  button{
+    font-size:16px;
+    padding:10px 16px;
+  }
+  .qr-card{
+    min-width:130px;
+  }
 }
