@@ -4,13 +4,12 @@ let startTime = null, timerInterval = null;
 let totalCardsCurrent = 12;
 let scoresCurrent = { 1: 0, 2: 0 };
 
-// cache das imagens das cartas
 const cardImages = {};
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
-    img.src = "cards/" + value + ".jpg"; // suas cartas em JPG
+    img.src = "cards/" + value + ".jpg";
     img.onload = () => draw();
     cardImages[value] = img;
   }
@@ -21,47 +20,54 @@ function startGame(mode) {
   modeSelected = mode;
   room = crypto.randomUUID().slice(0, 5);
 
-  if (ws && ws.readyState === WebSocket.OPEN) {
+  if (ws) {
     ws.close();
+    ws = null;
   }
 
   resetHUD();
 
-  ws = new WebSocket(location.origin.replace("http", "ws") + "/ws/" + room);
+  const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
-  ws.onopen = () => {
-    ws.send(JSON.stringify({
-      type: "start",
-      mode: modeSelected,
-      totalCards: 12
-    }));
-    renderQRs();
-    startTimer();
-  };
+  ws = createResilientWebSocket(wsUrl, {
+    onOpen() {
+      ws.send(JSON.stringify({
+        type: "start",
+        mode: modeSelected,
+        totalCards: 12
+      }));
+      renderQRs();
+      startTimer();
+    },
+    onMessage(ev) {
+      const msg = JSON.parse(ev.data);
 
-  ws.onmessage = e => {
-    const msg = JSON.parse(e.data);
+      if (msg.type === "board") {
+        setupBoard(msg.board, msg.totalCards);
+      }
 
-    if (msg.type === "board") {
-      setupBoard(msg.board, msg.totalCards);
-    }
+      if (msg.type === "state") {
+        applyState(msg);
+        if (typeof msg.turn !== "undefined") {
+          showTurn(msg.turn, msg.scores);
+        }
+      }
 
-    if (msg.type === "state") {
-      applyState(msg);
-      // 👇 aqui estava faltando: atualizar a mensagem de vez também no "state"
-      if (typeof msg.turn !== "undefined") {
+      if (msg.type === "turn") {
         showTurn(msg.turn, msg.scores);
       }
-    }
 
-    if (msg.type === "turn") {
-      showTurn(msg.turn, msg.scores);
+      if (msg.type === "end") {
+        showWinner(msg);
+      }
+    },
+    onClose(ev) {
+      console.log("[TOTEM] WS fechado", ev.code, ev.reason);
+    },
+    onError(err) {
+      console.error("[TOTEM] WS erro", err);
     }
-
-    if (msg.type === "end") {
-      showWinner(msg);
-    }
-  };
+  });
 
   document.getElementById("status").textContent =
     "Sala " + room + " — " + mode;
@@ -85,7 +91,6 @@ function renderQRs() {
   const el2 = document.getElementById("qr2");
   const card2 = document.getElementById("qr2-card");
 
-  // limpa QR antigos
   el1.innerHTML = "";
   el2.innerHTML = "";
 
