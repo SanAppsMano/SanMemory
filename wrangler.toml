@@ -2,14 +2,20 @@ name = "sanmemory"
 main = "worker.js"
 compatibility_date = "2025-01-01"
 
-# Servir estáticos (HTML/CSS/JS) a partir de ./public
+# Servir os arquivos estáticos da pasta ./public
 assets = { directory = "./public", binding = "ASSETS" }
 
+# Durable Object (sala de jogo)
 [durable_objects]
 bindings = [
   { name = "ROOM", class_name = "Room" }
 ]
 
+# Migration obrigatória no plano FREE
 [[migrations]]
 tag = "v1"
-new_classes = ["Room"]
+new_sqlite_classes = ["Room"]
+
+# (Opcional) Vars se quiser depois
+[vars]
+ENVIRONMENT = "production"
