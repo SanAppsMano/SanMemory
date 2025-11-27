@@ -34,3 +34,27 @@ canvas{
   background:#222;
   border-radius:12px;
 }
+
+#hud{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  font-size:14px;
+  margin:8px 0;
+  gap:8px;
+}
+#timer{
+  font-weight:bold;
+}
+#scores{
+  font-size:13px;
+}
+#record{
+  font-size:12px;
+  opacity:.8;
+  margin-top:4px;
+}
+#scoreMobile{
+  font-size:14px;
+  margin-top:8px;
+}
