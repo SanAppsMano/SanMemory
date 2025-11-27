@@ -7,14 +7,28 @@ document.getElementById("info").textContent =
 
 const ws=new WebSocket(location.origin.replace("http","ws")+"/ws/"+room);
 
+let scores = {1:0,2:0};
+
 ws.onopen=()=>{
   ws.send(JSON.stringify({type:"join",player}));
 };
 
 ws.onmessage=e=>{
   const msg=JSON.parse(e.data);
-  if(msg.type==="turn") updateTurn(msg.turn);
-  if(msg.type==="state") updateTurn(msg.turn);
+  if(msg.type==="turn") {
+    updateTurn(msg.turn);
+    if(msg.scores) {
+      scores = msg.scores;
+      updateScoreMobile();
+    }
+  }
+  if(msg.type==="state") {
+    updateTurn(msg.turn);
+    if(msg.scores) {
+      scores = msg.scores;
+      updateScoreMobile();
+    }
+  }
   if(msg.type==="end") onEnd(msg);
 };
 
@@ -23,9 +37,27 @@ function updateTurn(turn){
   el.textContent = (turn===player)?"Sua vez":"Aguardando...";
 }
 
+function updateScoreMobile(){
+  const mine = scores[player] || 0;
+  const other = scores[player===1?2:1] || 0;
+  document.getElementById("scoreMobile").textContent =
+    `Placar – Você: ${mine} | Outro: ${other}`;
+}
+
 function onEnd(msg){
-  document.getElementById("turn").textContent =
-    "Fim — Vencedor: Jogador "+msg.winner;
+  let txt;
+  if(msg.winner===0){
+    txt = "Fim — Empate!";
+  }else if(msg.winner===player){
+    txt = "Fim — Você venceu!";
+  }else{
+    txt = "Fim — Você perdeu.";
+  }
+  document.getElementById("turn").textContent = txt;
+  if(msg.scores){
+    scores = msg.scores;
+    updateScoreMobile();
+  }
 }
 
 function sendMove(i){
