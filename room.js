@@ -10,7 +10,8 @@ export class Room {
       players: { 1: false, 2: false },
       turn: 1,
       revealed: [],
-      matched: []
+      matched: [],
+      scores: { 1: 0, 2: 0 }
     };
   }
 
@@ -54,7 +55,8 @@ export class Room {
       this.broadcast({
         type: "players",
         players: this.game.players,
-        mode: this.game.mode
+        mode: this.game.mode,
+        scores: this.game.scores
       });
       return;
     }
@@ -67,6 +69,7 @@ export class Room {
       this.game.turn = 1;
       this.game.revealed = [];
       this.game.matched = [];
+      this.game.scores = { 1: 0, 2: 0 };
 
       this.broadcast({
         type: "board",
@@ -78,7 +81,8 @@ export class Room {
       this.broadcast({
         type: "turn",
         turn: this.game.turn,
-        mode: this.game.mode
+        mode: this.game.mode,
+        scores: this.game.scores
       });
       return;
     }
@@ -112,6 +116,9 @@ export class Room {
           if (this.game.board[a] === this.game.board[b]) {
             if (!this.game.matched.includes(a)) this.game.matched.push(a);
             if (!this.game.matched.includes(b)) this.game.matched.push(b);
+
+            const currentScore = this.game.scores[player] || 0;
+            this.game.scores[player] = currentScore + 1;
           } else {
             if (this.game.mode === "multi")
               this.game.turn = this.game.turn === 1 ? 2 : 1;
@@ -126,14 +133,26 @@ export class Room {
         turn: this.game.turn,
         revealed: this.game.revealed,
         matched: this.game.matched,
-        totalCards: this.game.totalCards
+        totalCards: this.game.totalCards,
+        scores: this.game.scores
       });
 
       if (this.game.matched.length === this.game.board.length) {
+        let winner = 1;
+        if (this.game.mode === "multi") {
+          const s1 = this.game.scores[1] || 0;
+          const s2 = this.game.scores[2] || 0;
+          if (s2 > s1) winner = 2;
+          else if (s1 === s2) winner = 0;
+        } else {
+          winner = 1;
+        }
+
         this.broadcast({
           type: "end",
           mode: this.game.mode,
-          winner: this.game.mode === "multi" ? player : 1
+          winner,
+          scores: this.game.scores
         });
       }
       return;
