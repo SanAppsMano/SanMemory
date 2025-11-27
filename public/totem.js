@@ -41,10 +41,26 @@ function startGame(mode) {
 
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
-    if (msg.type === "board") setupBoard(msg.board, msg.totalCards);
-    if (msg.type === "state") applyState(msg);
-    if (msg.type === "turn") showTurn(msg.turn, msg.scores);
-    if (msg.type === "end") showWinner(msg);
+
+    if (msg.type === "board") {
+      setupBoard(msg.board, msg.totalCards);
+    }
+
+    if (msg.type === "state") {
+      applyState(msg);
+      // 👇 aqui estava faltando: atualizar a mensagem de vez também no "state"
+      if (typeof msg.turn !== "undefined") {
+        showTurn(msg.turn, msg.scores);
+      }
+    }
+
+    if (msg.type === "turn") {
+      showTurn(msg.turn, msg.scores);
+    }
+
+    if (msg.type === "end") {
+      showWinner(msg);
+    }
   };
 
   document.getElementById("status").textContent =
