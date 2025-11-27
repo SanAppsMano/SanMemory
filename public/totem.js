@@ -10,7 +10,7 @@ const cardImages = {};
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
-    img.src = "cards/" + value + ".png";
+    img.src = "cards/" + value + ".jpg";
     img.onload = () => {
       // quando carregar alguma imagem, redesenha o tabuleiro
       draw();
