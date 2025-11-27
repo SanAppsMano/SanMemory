@@ -67,7 +67,9 @@ function resetHUD() {
 function renderQRs() {
   const el1 = document.getElementById("qr1");
   const el2 = document.getElementById("qr2");
+  const card2 = document.getElementById("qr2-card");
 
+  // limpa QR antigos
   el1.innerHTML = "";
   el2.innerHTML = "";
 
@@ -78,11 +80,14 @@ function renderQRs() {
   });
 
   if (modeSelected === "multi") {
+    card2.style.display = "flex";
     new QRCode(el2, {
       text: location.origin + "/controller.html?player=2&room=" + room,
       width: 130,
       height: 130
     });
+  } else {
+    card2.style.display = "none";
   }
 }
 
