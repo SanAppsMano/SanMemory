@@ -4,15 +4,14 @@ let startTime = null, timerInterval = null;
 let totalCardsCurrent = 12;
 let scoresCurrent = { 1: 0, 2: 0 };
 
+// cache das imagens das cartas
 const cardImages = {};
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
-    img.src = "cards/" + value + ".jpg"; // usa JPG
-    img.onload = () => {
-      draw();
-    };
+    img.src = "cards/" + value + ".jpg"; // suas cartas em JPG
+    img.onload = () => draw();
     cardImages[value] = img;
   }
   return cardImages[value];
@@ -48,7 +47,8 @@ function startGame(mode) {
     if (msg.type === "end") showWinner(msg);
   };
 
-  document.getElementById("status").textContent = "Sala " + room + " — " + mode;
+  document.getElementById("status").textContent =
+    "Sala " + room + " — " + mode;
 }
 
 function resetHUD() {
@@ -65,30 +65,24 @@ function resetHUD() {
 }
 
 function renderQRs() {
-  const QRClass =
-    (window.QRious && window.QRious.QRious)
-      ? window.QRious.QRious
-      : window.QRious;
+  const el1 = document.getElementById("qr1");
+  const el2 = document.getElementById("qr2");
 
-  if (!QRClass) {
-    console.error("QRious não carregado");
-    return;
-  }
+  el1.innerHTML = "";
+  el2.innerHTML = "";
 
-  new QRClass({
-    element: document.getElementById("qr1"),
-    value: location.origin + "/controller.html?player=1&room=" + room,
-    size: 130
+  new QRCode(el1, {
+    text: location.origin + "/controller.html?player=1&room=" + room,
+    width: 130,
+    height: 130
   });
 
   if (modeSelected === "multi") {
-    new QRClass({
-      element: document.getElementById("qr2"),
-      value: location.origin + "/controller.html?player=2&room=" + room,
-      size: 130
+    new QRCode(el2, {
+      text: location.origin + "/controller.html?player=2&room=" + room,
+      width: 130,
+      height: 130
     });
-  } else {
-    document.getElementById("qr2").innerHTML = "";
   }
 }
 
@@ -110,7 +104,8 @@ function setupBoard(arr, total) {
   ctx = cv.getContext("2d");
   cv.width = 350;
   cv.height = 350;
-  W = cv.width; H = cv.height;
+  W = cv.width;
+  H = cv.height;
 
   totalCardsCurrent = arr.length || total || 12;
 
