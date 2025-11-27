@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>SanMemory Totem</title>
+<link rel="stylesheet" href="style.css">
+<script src="qrious.min.js"></script>
+</head>
+<body>
+<div class="container">
+  <h2>SanMemory Totem</h2>
+
+  <label>Modo:</label>
+  <button onclick="startGame('single')">Single Player</button>
+  <button onclick="startGame('multi')">Multiplayer</button>
+
+  <div id="status"></div>
+  <canvas id="board"></canvas>
+
+  <h3>QR Jogadores</h3>
+  <div id="qr1"></div>
+  <div id="qr2"></div>
+</div>
+
+<script src="totem.js"></script>
+</body>
+</html>
