@@ -14,17 +14,24 @@
   <button onclick="startGame('single')">Single Player</button>
   <button onclick="startGame('multi')">Multiplayer</button>
 
+  <div id="hud">
+    <span id="timer">00:00</span>
+    <span id="scores">
+      P1: <span id="scoreP1">0</span>
+      <span id="scoreP2Wrapper"> · P2: <span id="scoreP2">0</span></span>
+    </span>
+  </div>
+
   <div id="status"></div>
   <canvas id="board"></canvas>
+  <div id="record"></div>
 
   <h3>QR Jogadores</h3>
   <div id="qr1"></div>
   <div id="qr2"></div>
 </div>
 
-<!-- Primeiro carrega a lib de QR -->
 <script src="qrious.min.js"></script>
-<!-- Depois o script do totem que usa QRious -->
 <script src="totem.js"></script>
 </body>
 </html>
