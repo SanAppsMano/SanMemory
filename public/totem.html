@@ -27,11 +27,25 @@
   <div id="record"></div>
 
   <h3>QR Jogadores</h3>
-  <div id="qr1"></div>
-  <div id="qr2"></div>
+
+  <div id="qr-section">
+    <div class="qr-grid">
+      <div class="qr-card">
+        <div class="qr-label">Jogador 1</div>
+        <div id="qr1" class="qr-box"></div>
+      </div>
+      <div class="qr-card" id="qr2-card">
+        <div class="qr-label">Jogador 2</div>
+        <div id="qr2" class="qr-box"></div>
+      </div>
+    </div>
+    <p class="qr-hint">
+      Cada jogador escaneia seu QR com o celular para usar como controle.
+    </p>
+  </div>
 </div>
 
-<!-- >>> TROCA AQUI: usamos qrcode.min.js em vez de qrious.min.js -->
+<!-- QRCode.js (CDN) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="totem.js"></script>
 </body>
