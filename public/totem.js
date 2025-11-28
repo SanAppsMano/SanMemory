@@ -25,6 +25,9 @@ let winnerInfo = null;
 
 const cardImages = {};
 
+// NOVO: escala do tabuleiro dentro do canvas (95%)
+const BOARD_SCALE = 0.95;
+
 // NOVO: mapa de imagens personalizadas por valor da carta
 let customCardMap = {};
 
@@ -304,7 +307,7 @@ function spawnParticles(cardIndex) {
   const c = cards[cardIndex];
 
   const pad = 6;
-  const boardSize = Math.min(W, H) * 0.9;
+  const boardSize = Math.min(W, H) * BOARD_SCALE;
   const cw = (boardSize - pad * (cols - 1)) / cols;
   const ch = (boardSize - pad * (rows - 1)) / rows;
   const boardW = cols * cw + pad * (cols - 1);
@@ -362,7 +365,7 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
 
   const pad = 6;
-  const boardSize = Math.min(W, H) * 0.9; // 90% do menor lado => cartas grandes
+  const boardSize = Math.min(W, H) * BOARD_SCALE; // 95% do menor lado
   const cw = (boardSize - pad * (cols - 1)) / cols;
   const ch = (boardSize - pad * (rows - 1)) / rows;
   const boardW = cols * cw + pad * (cols - 1);
@@ -463,14 +466,15 @@ function draw() {
   }
 
   // ======================================
-  // 3 — BANNER DO VENCEDOR
+  // 3 — BANNER DO VENCEDOR (ajustado ao board)
   // ======================================
   if (winnerInfo && winnerInfo.anim > 0) {
     const alpha = Math.min(1, winnerInfo.anim);
-    const bannerW = W * 0.85;
-    const bannerH = 80;
-    const x = (W - bannerW) / 2;
-    const y = H / 2 - bannerH / 2;
+
+    const bannerW = boardW * 0.96;                         // quase a largura do tabuleiro
+    const bannerH = Math.min(110, Math.max(80, boardH * 0.22)); // um pouco mais alto
+    const x = offsetX + (boardW - bannerW) / 2;
+    const y = offsetY + (boardH - bannerH) / 2;            // centro do tabuleiro
 
     ctx.save();
     ctx.globalAlpha = alpha;
@@ -492,11 +496,11 @@ function draw() {
     ctx.font = "20px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(winnerInfo.text, W / 2, y + bannerH / 2 - 12);
+    ctx.fillText(winnerInfo.text, x + bannerW / 2, y + bannerH / 2 - 12);
 
     ctx.fillStyle = "#ffffff";
     ctx.font = "14px Arial";
-    ctx.fillText("Tempo: " + winnerInfo.timeLabel, W / 2, y + bannerH / 2 + 14);
+    ctx.fillText("Tempo: " + winnerInfo.timeLabel, x + bannerW / 2, y + bannerH / 2 + 14);
 
     ctx.restore();
 
