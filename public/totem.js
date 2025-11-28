@@ -19,8 +19,9 @@ let scoresCurrent = { 1: 0, 2: 0 };
 let lastMatchedCount = 0;
 let lastRevealedCount = 0;
 
-// partícula global
+// partículas e info de vencedor
 let particles = [];
+let winnerInfo = null;
 
 const cardImages = {};
 
@@ -47,6 +48,7 @@ function startGame(mode) {
   }
 
   resetHUD();
+  winnerInfo = null;
 
   const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
@@ -89,7 +91,8 @@ function resetHUD() {
   document.getElementById("timer").textContent = "00:00";
   document.getElementById("scoreP1").textContent = "0";
   document.getElementById("scoreP2").textContent = "0";
-  document.getElementById("record").textContent = "";
+  const recordEl = document.getElementById("record");
+  if (recordEl) recordEl.textContent = "";
   document.getElementById("scoreP2Wrapper").style.display =
     modeSelected === "multi" ? "inline" : "none";
 
@@ -235,9 +238,8 @@ function applyState(msg) {
   updateScores();
 }
 
-
 // =============================================
-//   FUNÇÃO DE PARTÍCULAS (GAMER)
+//   FUNÇÃO DE PARTÍCULAS (ACERTO POR CARTA)
 // =============================================
 function spawnParticles(cardIndex) {
   const c = cards[cardIndex];
@@ -257,6 +259,26 @@ function spawnParticles(cardIndex) {
       vy: (Math.random() - 0.5) * 5,
       life: 1,
       color: ["#ff0", "#fff", "#0f0"][Math.floor(Math.random() * 3)]
+    });
+  }
+}
+
+// =============================================
+//   PARTÍCULAS DE VITÓRIA (CENTRO DO TABULEIRO)
+// =============================================
+function spawnWinBurst() {
+  if (!ctx) return;
+  const centerX = W / 2;
+  const centerY = H / 2;
+
+  for (let i = 0; i < 90; i++) {
+    particles.push({
+      x: centerX,
+      y: centerY,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+      life: 1,
+      color: ["#ffd700", "#ff00ff", "#00ffff", "#ffffff"][Math.floor(Math.random() * 4)]
     });
   }
 }
@@ -372,6 +394,48 @@ function draw() {
 
     if (p.life <= 0) particles.splice(i, 1);
   }
+
+  // ======================================
+  // 3 — BANNER DO VENCEDOR
+  // ======================================
+  if (winnerInfo && winnerInfo.anim > 0) {
+    const alpha = Math.min(1, winnerInfo.anim);
+    const bannerW = W * 0.85;
+    const bannerH = 80;
+    const x = (W - bannerW) / 2;
+    const y = H / 2 - bannerH / 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const grd = ctx.createLinearGradient(x, y, x + bannerW, y + bannerH);
+    grd.addColorStop(0, "#222");
+    grd.addColorStop(0.3, "#444");
+    grd.addColorStop(0.7, "#555");
+    grd.addColorStop(1, "#222");
+
+    ctx.fillStyle = grd;
+    ctx.strokeStyle = "#ffd700";
+    ctx.lineWidth = 3;
+
+    ctx.fillRect(x, y, bannerW, bannerH);
+    ctx.strokeRect(x, y, bannerW, bannerH);
+
+    ctx.fillStyle = "#ffd700";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(winnerInfo.text, W / 2, y + bannerH / 2 - 12);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14px Arial";
+    ctx.fillText("Tempo: " + winnerInfo.timeLabel, W / 2, y + bannerH / 2 + 14);
+
+    ctx.restore();
+
+    winnerInfo.anim -= 0.01;
+    if (winnerInfo.anim < 0) winnerInfo.anim = 0;
+  }
 }
 
 // =============================================
@@ -405,9 +469,27 @@ function showWinner(msg) {
   const m = String(Math.floor(sec / 60)).padStart(2, "0");
   const s = String(sec % 60).padStart(2, "0");
 
-  let texto = `Fim do jogo — `;
-  texto += (msg.winner === 0 ? "Empate!" : "Vencedor: Jogador " + msg.winner);
-  texto += ` · Tempo: ${m}:${s}`;
+  let textoStatus;
+  let textoBanner;
 
-  document.getElementById("status").textContent = texto;
+  if (msg.winner === 0 && modeSelected === "multi") {
+    textoStatus = "Fim do jogo — Empate!";
+    textoBanner = "Empate!";
+  } else {
+    const w = msg.winner || 1;
+    textoStatus = `Fim do jogo — Vencedor: Jogador ${w}`;
+    textoBanner = `Jogador ${w} venceu!`;
+  }
+
+  document.getElementById("status").textContent =
+    `${textoStatus} · Tempo: ${m}:${s}`;
+
+  winnerInfo = {
+    winner: msg.winner,
+    text: textoBanner,
+    timeLabel: `${m}:${s}`,
+    anim: 1
+  };
+
+  spawnWinBurst();
 }
