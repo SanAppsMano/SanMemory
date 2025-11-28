@@ -10,7 +10,6 @@ sError.volume = 0.5;
 //   ENGINE / VARS
 // =============================================
 let ws, room, modeSelected = "multi";
-const GAME_DURATION_SECONDS = 5 * 60; // 5 minutos de jogo
 
 let ctx, W, H, cards = [], matched = [], revealed = [];
 let startTime = null, timerInterval = null;
@@ -24,393 +23,24 @@ let lastRevealedCount = 0;
 let particles = [];
 let winnerInfo = null;
 
-// cache de imagens das cartas
 const cardImages = {};
 
-// =============================================
-//   BOARD / CARTAS
-// =============================================
-function setupBoard(board, totalCards) {
-  cards = board || [];
-  totalCardsCurrent = totalCards || cards.length;
-  matched = [];
-  revealed = [];
-  lastMatchedCount = 0;
-  lastRevealedCount = 0;
-  winnerInfo = null;
-
-  const canvas = document.getElementById("board");
-  if (!canvas) return;
-
-  // o HTML original define width/height do canvas (ex.: 350x350)
-  ctx = canvas.getContext("2d");
-  W = canvas.width;
-  H = canvas.height;
-
-  draw();
-}
-
-function getGridConfig() {
-  // 12 cartas = 4x3, 24 cartas = 6x4 (mesma lógica do original)
-  if (totalCardsCurrent === 24) {
-    return { cols: 6, rows: 4 };
-  }
-  return { cols: 4, rows: 3 };
-}
-
-function cardRect(index) {
-  const { cols, rows } = getGridConfig();
-
-  const padding = 20;
-  const cardW = (W - padding * (cols + 1)) / cols;
-  const cardH = (H - padding * (rows + 1)) / rows;
-
-  const col = index % cols;
-  const row = Math.floor(index / cols);
-
-  const x = padding + col * (cardW + padding);
-  const y = padding + row * (cardH + padding);
-
-  return { x, y, w: cardW, h: cardH };
-}
-
-function roundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
 function getCardImage(value) {
-  if (!value) return null;
   if (!cardImages[value]) {
     const img = new Image();
     img.src = "cards/" + value + ".jpg";
-    img.onload = () => {
-      draw();
-    };
+    img.onload = () => draw();
     cardImages[value] = img;
   }
   return cardImages[value];
 }
 
-function drawCard(index) {
-  const card = cards[index];
-  if (!card) return;
-
-  const rect = cardRect(index);
-  const isMatched = matched.includes(card.id);
-  const isRevealed = revealed.includes(index);
-
-  ctx.save();
-
-  // sombra
-  ctx.shadowColor = "rgba(0,0,0,0.35)";
-  ctx.shadowBlur = 16;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 6;
-
-  // fundo gradiente
-  let grad = ctx.createLinearGradient(rect.x, rect.y, rect.x + rect.w, rect.y + rect.h);
-  if (isMatched) {
-    grad.addColorStop(0, "#22c55e");
-    grad.addColorStop(1, "#16a34a");
-  } else if (isRevealed) {
-    grad.addColorStop(0, "#0ea5e9");
-    grad.addColorStop(1, "#0369a1");
-  } else {
-    grad.addColorStop(0, "#1e293b");
-    grad.addColorStop(1, "#020617");
-  }
-
-  const radius = 18;
-  roundedRect(ctx, rect.x, rect.y, rect.w, rect.h, radius);
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-
-  ctx.lineWidth = isMatched ? 4 : 2;
-  ctx.strokeStyle = isMatched
-    ? "rgba(34,197,94,0.7)"
-    : isRevealed
-    ? "rgba(56,189,248,0.7)"
-    : "rgba(148,163,184,0.8)";
-  ctx.stroke();
-
-  // conteúdo
-  const img = isMatched || isRevealed ? getCardImage(card.value) : null;
-
-  if (img && img.complete) {
-    const paddingImg = rect.w * 0.12;
-    const iw = rect.w - paddingImg * 2;
-    const ih = rect.h - paddingImg * 2;
-    ctx.drawImage(img, rect.x + paddingImg, rect.y + paddingImg, iw, ih);
-  } else {
-    // fallback com texto
-    ctx.fillStyle = "#e5e7eb";
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-    ctx.font = `${Math.floor(rect.h * 0.3)}px system-ui, sans-serif`;
-    const label = isMatched || isRevealed ? (card.label || "?") : "?";
-    ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2);
-  }
-
-  ctx.restore();
-}
-
 // =============================================
-//   PARTÍCULAS / ANIMAÇÃO
+//   INICIAR JOGO
 // =============================================
-function spawnMatchParticles(index) {
-  const rect = cardRect(index);
-  const cx = rect.x + rect.w / 2;
-  const cy = rect.y + rect.h / 2;
-
-  for (let i = 0; i < 14; i++) {
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: (Math.random() - 0.5) * 5,
-      vy: (Math.random() - 0.5) * 5,
-      life: 1,
-      size: 4 + Math.random() * 4,
-      color: Math.random() > 0.5 ? "#22c55e" : "#38bdf8"
-    });
-  }
-}
-
-function spawnWinBurst() {
-  if (!W || !H) return;
-  const cx = W / 2;
-  const cy = 60;
-
-  for (let i = 0; i < 80; i++) {
-    const angle = Math.random() * Math.PI * 2;
-    const speed = 2 + Math.random() * 4;
-    particles.push({
-      x: cx,
-      y: cy,
-      vx: Math.cos(angle) * speed,
-      vy: Math.sin(angle) * speed,
-      life: 1,
-      size: 6 + Math.random() * 6,
-      color: Math.random() > 0.5 ? "#22c55e" : "#38bdf8"
-    });
-  }
-}
-
-function updateParticles(delta) {
-  const friction = 0.9;
-  particles.forEach(p => {
-    p.x += p.vx * delta * 60;
-    p.y += p.vy * delta * 60;
-    p.vx *= friction;
-    p.vy *= friction;
-    p.life -= delta * 0.7;
-  });
-  particles = particles.filter(p => p.life > 0);
-}
-
-function drawParticles() {
-  if (!particles.length) return;
-  ctx.save();
-  particles.forEach(p => {
-    ctx.globalAlpha = Math.max(0, p.life);
-    ctx.fillStyle = p.color;
-    ctx.beginPath();
-    ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-    ctx.fill();
-  });
-  ctx.restore();
-}
-
-function drawWinnerBanner(delta) {
-  if (!winnerInfo) return;
-  const { anim, text, timeLabel } = winnerInfo;
-
-  winnerInfo.anim = Math.min(1, winnerInfo.anim + delta * 1.2);
-  const alpha = winnerInfo.anim;
-
-  const bannerH = 80;
-  const targetY = 40;
-  const startY = -bannerH;
-  const t = 1 - Math.pow(1 - alpha, 3);
-  const y = startY + (targetY - startY) * t;
-
-  ctx.save();
-  ctx.globalAlpha = alpha * 0.95;
-
-  const paddingX = 32;
-  ctx.font = "bold 28px system-ui, sans-serif";
-  const textW = ctx.measureText(text).width;
-  ctx.font = "16px system-ui, sans-serif";
-  const timeW = ctx.measureText(timeLabel).width;
-  const totalW = Math.max(textW, timeW) + paddingX * 2;
-  const x = (W - totalW) / 2;
-
-  ctx.fillStyle = "rgba(15,23,42,0.92)";
-  ctx.strokeStyle = "rgba(148,163,184,0.8)";
-  ctx.lineWidth = 2.5;
-
-  roundedRect(ctx, x, y, totalW, bannerH, 18);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.globalAlpha = 1;
-  ctx.textAlign = "center";
-
-  ctx.font = "bold 28px system-ui, sans-serif";
-  ctx.fillStyle = "#e5e7eb";
-  ctx.fillText(text, x + totalW / 2, y + 30);
-
-  ctx.font = "16px system-ui, sans-serif";
-  ctx.fillStyle = "#a5b4fc";
-  ctx.fillText(timeLabel, x + totalW / 2, y + 54);
-
-  ctx.restore();
-}
-
-// =============================================
-//   LOOP PRINCIPAL
-// =============================================
-let lastFrameTime = null;
-function loop(timestamp) {
-  if (!ctx) {
-    requestAnimationFrame(loop);
-    return;
-  }
-
-  if (lastFrameTime === null) lastFrameTime = timestamp;
-  const delta = (timestamp - lastFrameTime) / 1000;
-  lastFrameTime = timestamp;
-
-  ctx.clearRect(0, 0, W, H);
-
-  for (let i = 0; i < cards.length; i++) {
-    drawCard(i);
-  }
-
-  updateParticles(delta);
-  drawParticles();
-  drawWinnerBanner(delta);
-
-  requestAnimationFrame(loop);
-}
-
-// =============================================
-//   ESTADO / WS
-// =============================================
-function applyState(state) {
-  matched = state.matched || [];
-  revealed = state.revealed || [];
-  scoresCurrent = state.scores || { 1: 0, 2: 0 };
-
-  const matchedCount = matched.length;
-  const revealedCount = revealed.length;
-
-  const newMatches = matchedCount - lastMatchedCount;
-  const newReveals = revealedCount - lastRevealedCount;
-
-  if (newMatches > 0) {
-    try {
-      sMatch.currentTime = 0;
-      sMatch.play();
-    } catch {}
-    // pega o último índice revelado como referência para partículas
-    const lastIndex = revealed[revealed.length - 1];
-    if (typeof lastIndex === "number") {
-      spawnMatchParticles(lastIndex);
-    }
-  } else if (newReveals > 0) {
-    try {
-      sError.currentTime = 0;
-      sError.play();
-    } catch {}
-  }
-
-  lastMatchedCount = matchedCount;
-  lastRevealedCount = revealedCount;
-
-  draw();
-}
-
-function showTurn(turn, scores) {
-  const p1 = scores?.[1] ?? 0;
-  const p2 = scores?.[2] ?? 0;
-
-  document.getElementById("scoreP1").textContent = p1;
-  document.getElementById("scoreP2").textContent = p2;
-
-  let texto = "";
-  if (modeSelected === "single") {
-    texto = "Modo 1 Jogador";
-  } else {
-    texto = "Vez do Jogador " + turn;
-  }
-
-  document.getElementById("status").textContent = texto;
-}
-
-function resetHUD() {
-  document.getElementById("timer").textContent = "05:00";
-  document.getElementById("scoreP1").textContent = "0";
-  document.getElementById("scoreP2").textContent = "0";
-  const recordEl = document.getElementById("record");
-  if (recordEl) recordEl.textContent = "";
-  document.getElementById("scoreP2Wrapper").style.display =
-    modeSelected === "multi" ? "inline" : "none";
-
-  if (timerInterval) clearInterval(timerInterval);
-  startTime = null;
-  scoresCurrent = { 1: 0, 2: 0 };
-}
-
-function startTimer() {
-  if (timerInterval) clearInterval(timerInterval);
-  startTime = Date.now();
-  document.getElementById("timer").textContent = "05:00";
-
-  timerInterval = setInterval(() => {
-    if (!startTime) return;
-
-    const elapsed = Math.floor((Date.now() - startTime) / 1000);
-    const remaining = GAME_DURATION_SECONDS - elapsed;
-    const clamped = Math.max(0, remaining);
-
-    const m = String(Math.floor(clamped / 60)).padStart(2, "0");
-    const s = String(clamped % 60).padStart(2, "0");
-    document.getElementById("timer").textContent = `${m}:${s}`;
-
-    if (remaining <= 0) {
-      const p1 = scoresCurrent[1] || 0;
-      const p2 = scoresCurrent[2] || 0;
-
-      let winner;
-      if (modeSelected === "multi") {
-        if (p1 > p2) winner = 1;
-        else if (p2 > p1) winner = 2;
-        else winner = 0; // empate
-      } else {
-        winner = 1;
-      }
-
-      showWinner({ winner });
-      return;
-    }
-  }, 1000);
-}
-
-function initWebSocket(mode) {
-  if (!room) return;
+function startGame(mode) {
+  modeSelected = mode;
+  room = crypto.randomUUID().slice(0, 5);
 
   if (ws) {
     ws.close();
@@ -424,13 +54,11 @@ function initWebSocket(mode) {
 
   ws = createResilientWebSocket(wsUrl, {
     onOpen() {
-      ws.send(
-        JSON.stringify({
-          type: "start",
-          mode: modeSelected,
-          totalCards: 12
-        })
-      );
+      ws.send(JSON.stringify({
+        type: "start",
+        mode: modeSelected,
+        totalCards: 12
+      }));
       renderQRs();
       startTimer();
     },
@@ -446,14 +74,10 @@ function initWebSocket(mode) {
 
       if (msg.type === "turn") showTurn(msg.turn, msg.scores);
 
-      if (msg.type === "end" && !winnerInfo) showWinner(msg);
+      if (msg.type === "end") showWinner(msg);
     },
-    onClose(ev) {
-      console.log("[TOTEM] WS fechado", ev.code, ev.reason);
-    },
-    onError(err) {
-      console.error("[TOTEM] WS erro", err);
-    }
+    onClose(ev) { console.log("[TOTEM] WS fechado", ev.code, ev.reason); },
+    onError(err) { console.error("[TOTEM] WS erro", err); }
   });
 
   document.getElementById("status").textContent =
@@ -461,38 +85,387 @@ function initWebSocket(mode) {
 }
 
 // =============================================
+//   HUD
+// =============================================
+function resetHUD() {
+  document.getElementById("timer").textContent = "00:00";
+  document.getElementById("scoreP1").textContent = "0";
+  document.getElementById("scoreP2").textContent = "0";
+  const recordEl = document.getElementById("record");
+  if (recordEl) recordEl.textContent = "";
+  document.getElementById("scoreP2Wrapper").style.display =
+    modeSelected === "multi" ? "inline" : "none";
+
+  if (timerInterval) clearInterval(timerInterval);
+  startTime = null;
+  scoresCurrent = { 1: 0, 2: 0 };
+}
+
+function startTimer() {
+  startTime = Date.now();
+  timerInterval = setInterval(() => {
+    if (!startTime) return;
+    const sec = Math.floor((Date.now() - startTime) / 1000);
+    const m = String(Math.floor(sec / 60)).padStart(2, "0");
+    const s = String(sec % 60).padStart(2, "0");
+    document.getElementById("timer").textContent = `${m}:${s}`;
+  }, 1000);
+}
+
+// =============================================
 //   QR CODE
 // =============================================
 function renderQRs() {
-  const url = new URL(location.href);
-  url.searchParams.set("room", room);
+  const el1 = document.getElementById("qr1");
+  const el2 = document.getElementById("qr2");
+  const card2 = document.getElementById("qr2-card");
 
-  const base = url.toString().replace(/totem\.html.*/, "controller.html");
+  el1.innerHTML = "";
+  el2.innerHTML = "";
 
-  const el1 = document.getElementById("qrcode1");
-  const el2 = document.getElementById("qrcode2");
+  new QRCode(el1, {
+    text: location.origin + "/controller.html?player=1&room=" + room,
+    width: 130, height: 130
+  });
 
-  if (el1 && !el1._qr) {
-    el1._qr = new QRious({
-      element: el1,
-      value: base,
-      size: 200,
-      background: "transparent"
+  if (modeSelected === "multi") {
+    card2.style.display = "flex";
+    new QRCode(el2, {
+      text: location.origin + "/controller.html?player=2&room=" + room,
+      width: 130, height: 130
     });
+  } else {
+    card2.style.display = "none";
   }
-  if (el2 && !el2._qr) {
-    el2._qr = new QRious({
-      element: el2,
-      value: base,
-      size: 200,
-      background: "transparent"
+}
+
+// =============================================
+//   TABULEIRO
+// =============================================
+let cols = 4, rows = 3;
+
+function setupBoard(arr, total) {
+  const cv = document.getElementById("board");
+  ctx = cv.getContext("2d");
+  cv.width = 350;
+  cv.height = 350;
+  W = cv.width;
+  H = cv.height;
+
+  totalCardsCurrent = arr.length || total || 12;
+
+  cards = [];
+  let i = 0;
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      if (i >= arr.length) break;
+      cards.push({
+        x, y,
+        value: arr[i++],
+        flip: 0,
+        animFlip: 0,
+        animShake: 0,
+        animPulse: 0,
+        animFade: 0,
+        animGlow: 0
+      });
+    }
+  }
+
+  matched = [];
+  revealed = [];
+}
+
+// =============================================
+//   APLICAR ESTADO + DISPARAR ANIMAÇÕES
+// =============================================
+function applyState(msg) {
+  const newMatchedCount = msg.matched.length;
+  const newRevealedCount = msg.revealed.length;
+
+  const hadNewMatch = newMatchedCount > lastMatchedCount;
+  const isErrorClose =
+    lastRevealedCount > 0 &&
+    newRevealedCount === 0 &&
+    !hadNewMatch;
+
+  // som de acerto
+  if (hadNewMatch) {
+    sMatch.currentTime = 0;
+    sMatch.play();
+  }
+
+  // som de erro
+  if (isErrorClose) {
+    sError.currentTime = 0;
+    sError.play();
+  }
+
+  lastMatchedCount = newMatchedCount;
+  lastRevealedCount = newRevealedCount;
+
+  matched = msg.matched || [];
+  revealed = msg.revealed || [];
+  scoresCurrent = msg.scores || scoresCurrent;
+
+  cards.forEach((c, i) => {
+    // flip abrindo
+    if (revealed.includes(i) && c.flip === 0) {
+      c.flip = 1;
+      c.animFlip = 1;
+    }
+
+    // flip fechando
+    if (!revealed.includes(i) && c.flip === 1 && !matched.includes(i)) {
+      c.flip = 0;
+      c.animFlip = 1;
+    }
+
+    // matched - pulse, glow, fade, partículas
+    if (matched.includes(i) && c.animFade === 0) {
+      c.animPulse = 1;
+      c.animGlow = 1;
+      spawnParticles(i);
+      c.animFade = 1;
+    }
+
+    // erro - shake
+    if (isErrorClose && !matched.includes(i)) {
+      c.animShake = 1;
+    }
+  });
+
+  updateScores();
+}
+
+// =============================================
+//   FUNÇÃO DE PARTÍCULAS (ACERTO POR CARTA)
+// =============================================
+function spawnParticles(cardIndex) {
+  const c = cards[cardIndex];
+
+  const pad = 6;
+  const cw = (W - pad * (cols + 1)) / cols;
+  const ch = (H - pad * (rows + 1)) / rows;
+
+  const cx = pad + c.x * (cw + pad) + cw / 2;
+  const cy = pad + c.y * (ch + pad) + ch / 2;
+
+  for (let i = 0; i < 14; i++) {
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5,
+      life: 1,
+      color: ["#ff0", "#fff", "#0f0"][Math.floor(Math.random() * 3)]
     });
   }
 }
 
 // =============================================
-//   VENCEDOR
+//   PARTÍCULAS DE VITÓRIA (CENTRO DO TABULEIRO)
 // =============================================
+function spawnWinBurst() {
+  if (!ctx) return;
+  const centerX = W / 2;
+  const centerY = H / 2;
+
+  for (let i = 0; i < 90; i++) {
+    particles.push({
+      x: centerX,
+      y: centerY,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+      life: 1,
+      color: ["#ffd700", "#ff00ff", "#00ffff", "#ffffff"][Math.floor(Math.random() * 4)]
+    });
+  }
+}
+
+// =============================================
+//   DESENHO + ANIMAÇÕES
+// =============================================
+function animate() {
+  draw();
+  requestAnimationFrame(animate);
+}
+animate();
+
+function draw() {
+  if (!ctx) return;
+
+  ctx.clearRect(0, 0, W, H);
+
+  const pad = 6;
+  const cw = (W - pad * (cols + 1)) / cols;
+  const ch = (H - pad * (rows + 1)) / rows;
+
+  // ===============================
+  // 1 — DESENHAR CARTAS
+  // ===============================
+  for (let i = 0; i < cards.length; i++) {
+    const c = cards[i];
+
+    let x = pad + c.x * (cw + pad);
+    let y = pad + c.y * (ch + pad);
+
+    ctx.save();
+
+    // ---- animação flip (3D) ----
+    let flipX = 1;
+    if (c.animFlip > 0) {
+      flipX = Math.abs(Math.cos((1 - c.animFlip) * Math.PI));
+      c.animFlip -= 0.08;
+      if (c.animFlip < 0) c.animFlip = 0;
+    }
+
+    // ---- animação shake (erro) ----
+    let shake = 0;
+    if (c.animShake > 0) {
+      shake = Math.sin(c.animShake * Math.PI * 6) * 5;
+      c.animShake -= 0.06;
+      if (c.animShake < 0) c.animShake = 0;
+    }
+
+    // ---- animação pulse (acerto) ----
+    let pulse = 1;
+    if (c.animPulse > 0) {
+      pulse = 1 + Math.sin(c.animPulse * Math.PI) * 0.18;
+      c.animPulse -= 0.04;
+      if (c.animPulse < 0) c.animPulse = 0;
+    }
+
+    // ---- glow (acerto) ----
+    if (c.animGlow > 0) {
+      const g = c.animGlow;
+      ctx.shadowColor = "rgba(255,255,100," + g + ")";
+      ctx.shadowBlur = 30 * g;
+      c.animGlow -= 0.03;
+      if (c.animGlow < 0) c.animGlow = 0;
+    }
+
+    // ---- fade (desaparecer matched) ----
+    let alpha = 1;
+    if (c.animFade > 0 && matched.includes(i)) {
+      alpha = c.animFade;
+      c.animFade -= 0.02;
+      if (c.animFade < 0) c.animFade = 0;
+    }
+
+    // aplicar transformações
+    ctx.translate(x + cw / 2 + shake, y + ch / 2);
+    ctx.scale(flipX * pulse, pulse);
+    ctx.translate(-cw / 2, -ch / 2);
+    ctx.globalAlpha = alpha;
+
+    // desenhar carta
+    const isMatched = matched.includes(i);
+    const isRevealed = revealed.includes(i);
+
+    ctx.fillStyle = isMatched ? "#0a0" : (isRevealed ? "#999" : "#222");
+    ctx.fillRect(0, 0, cw, ch);
+
+    ctx.strokeStyle = "#fff";
+    ctx.strokeRect(0, 0, cw, ch);
+
+    if (isMatched || isRevealed) {
+      const img = getCardImage(c.value);
+      if (img && img.complete) ctx.drawImage(img, 0, 0, cw, ch);
+    }
+
+    ctx.restore();
+    ctx.globalAlpha = 1;
+  }
+
+  // ======================================
+  // 2 — DESENHAR PARTÍCULAS GAMER
+  // ======================================
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx;
+    p.y += p.vy;
+    p.life -= 0.03;
+
+    ctx.fillStyle = p.color + Math.floor(p.life * 255).toString(16).padStart(2, "0");
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // ======================================
+  // 3 — BANNER DO VENCEDOR
+  // ======================================
+  if (winnerInfo && winnerInfo.anim > 0) {
+    const alpha = Math.min(1, winnerInfo.anim);
+    const bannerW = W * 0.85;
+    const bannerH = 80;
+    const x = (W - bannerW) / 2;
+    const y = H / 2 - bannerH / 2;
+
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    const grd = ctx.createLinearGradient(x, y, x + bannerW, y + bannerH);
+    grd.addColorStop(0, "#222");
+    grd.addColorStop(0.3, "#444");
+    grd.addColorStop(0.7, "#555");
+    grd.addColorStop(1, "#222");
+
+    ctx.fillStyle = grd;
+    ctx.strokeStyle = "#ffd700";
+    ctx.lineWidth = 3;
+
+    ctx.fillRect(x, y, bannerW, bannerH);
+    ctx.strokeRect(x, y, bannerW, bannerH);
+
+    ctx.fillStyle = "#ffd700";
+    ctx.font = "20px Arial";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(winnerInfo.text, W / 2, y + bannerH / 2 - 12);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.font = "14px Arial";
+    ctx.fillText("Tempo: " + winnerInfo.timeLabel, W / 2, y + bannerH / 2 + 14);
+
+    ctx.restore();
+
+    // diminui bem mais devagar para dar tempo de ler
+    winnerInfo.anim -= 0.00055;
+    if (winnerInfo.anim < 0) winnerInfo.anim = 0;
+    //só desaparece quando você iniciar outro jogo
+    //const alpha = 1;
+
+  }
+}
+
+// =============================================
+//   TURN / SCORES / END
+// =============================================
+function showTurn(t, scores) {
+  if (scores) scoresCurrent = scores;
+  updateScores();
+  document.getElementById("status").textContent =
+    "Sala " + room + " — vez do jogador " + t;
+}
+
+function updateScores() {
+  document.getElementById("scoreP1").textContent =
+    scoresCurrent[1] || 0;
+
+  const p2wrap = document.getElementById("scoreP2Wrapper");
+  if (modeSelected === "multi") {
+    p2wrap.style.display = "inline";
+    document.getElementById("scoreP2").textContent =
+      scoresCurrent[2] || 0;
+  } else {
+    p2wrap.style.display = "none";
+  }
+}
+
 function showWinner(msg) {
   if (timerInterval) clearInterval(timerInterval);
 
@@ -519,47 +492,8 @@ function showWinner(msg) {
     winner: msg.winner,
     text: textoBanner,
     timeLabel: `${m}:${s}`,
-    anim: 0
+    anim: 1
   };
 
   spawnWinBurst();
 }
-
-// =============================================
-//   INIT
-// =============================================
-window.addEventListener("load", () => {
-  const params = new URLSearchParams(location.search);
-  room = params.get("room") || "sala-1";
-  modeSelected = params.get("mode") || "multi";
-
-  const canvas = document.getElementById("board");
-  if (!canvas) return;
-
-  ctx = canvas.getContext("2d");
-  W = canvas.width;
-  H = canvas.height;
-
-  loop(performance.now());
-  initWebSocket(modeSelected);
-});
-
-// =============================================
-//   CLIQUE NO BOARD (FEEDBACK VISUAL)
-// =============================================
-document.getElementById("board").addEventListener("click", (ev) => {
-  const rect = ev.target.getBoundingClientRect();
-  const x = ev.clientX - rect.left;
-  const y = ev.clientY - rect.top;
-
-  for (let i = 0; i < cards.length; i++) {
-    const r = cardRect(i);
-    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-      const info = document.getElementById("status");
-      if (info) {
-        info.textContent = "Aguardando jogada dos celulares...";
-      }
-      break;
-    }
-  }
-});
