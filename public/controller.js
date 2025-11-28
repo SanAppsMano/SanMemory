@@ -2,19 +2,77 @@ const params = new URLSearchParams(location.search);
 const player = parseInt(params.get("player"));
 const room = params.get("room");
 
-document.getElementById("info").textContent =
-  "Jogador " + player + " — Sala " + room;
+const infoEl = document.getElementById("info");
+if (infoEl) {
+  infoEl.textContent = "Jogador " + player + " — Sala " + room;
+}
 
 let scores = { 1: 0, 2: 0 };
+
+// Estado de conexão e botões
+let connState = "connecting";
+let reconnectTimerId = null;
+let pendingMove = null;
+let moveTimeoutId = null;
+let hasParamError = false;
+const buttons = [];
+
+const connStatusEl = document.getElementById("conn-status");
+
+function updateButtonsEnabled(enabled) {
+  const finalEnabled = !!enabled && !hasParamError;
+  for (const b of buttons) {
+    b.disabled = !finalEnabled;
+  }
+}
+
+function setConnState(state) {
+  connState = state;
+  if (connStatusEl) {
+    if (state === "connecting") connStatusEl.textContent = "Conectando…";
+    else if (state === "connected") connStatusEl.textContent = "Conectado";
+    else if (state === "reconnecting") connStatusEl.textContent = "Reconectando…";
+    else if (state === "offline") connStatusEl.textContent = "Sem conexão";
+  }
+  // habilita botões só quando conectado e sem jogada pendente
+  updateButtonsEnabled(state === "connected" && !pendingMove);
+}
+
+function clearPendingMove() {
+  if (moveTimeoutId) {
+    clearTimeout(moveTimeoutId);
+    moveTimeoutId = null;
+  }
+  pendingMove = null;
+  updateButtonsEnabled(connState === "connected");
+}
+
+// Validação básica dos parâmetros
+if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
+  hasParamError = true;
+  if (infoEl) {
+    infoEl.textContent = "Erro: link inválido. Leia o QR novamente.";
+  }
+  setConnState("offline");
+} else {
+  setConnState("connecting");
+}
 
 // URL original do WS
 const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
 // WebSocket resiliente com heartbeat + reconnect
 const ws = createResilientWebSocket(wsUrl, {
-  onOpen() {
+  onOpen(ev) {
+    console.log("[CTRL] WS aberto", ev);
+    if (hasParamError) return;
     // Mesmo comportamento: enviar "join" quando conecta
     ws.send(JSON.stringify({ type: "join", player }));
+    if (reconnectTimerId) {
+      clearTimeout(reconnectTimerId);
+      reconnectTimerId = null;
+    }
+    setConnState("connected");
   },
   onMessage(e) {
     const msg = JSON.parse(e.data);
@@ -25,6 +83,7 @@ const ws = createResilientWebSocket(wsUrl, {
         scores = msg.scores;
         updateScoreMobile();
       }
+      clearPendingMove();
     }
 
     if (msg.type === "state") {
@@ -33,14 +92,27 @@ const ws = createResilientWebSocket(wsUrl, {
         scores = msg.scores;
         updateScoreMobile();
       }
+      clearPendingMove();
     }
 
     if (msg.type === "end") {
       onEnd(msg);
+      clearPendingMove();
     }
   },
   onClose(ev) {
     console.log("[CTRL] WS fechado", ev.code, ev.reason);
+    if (hasParamError) return;
+    // entra em modo reconexão; se não voltar em 10s, considera offline
+    setConnState("reconnecting");
+    if (reconnectTimerId) {
+      clearTimeout(reconnectTimerId);
+    }
+    reconnectTimerId = setTimeout(() => {
+      if (connState === "reconnecting") {
+        setConnState("offline");
+      }
+    }, 10000);
   },
   onError(err) {
     console.error("[CTRL] WS erro", err);
@@ -49,17 +121,23 @@ const ws = createResilientWebSocket(wsUrl, {
 
 function updateTurn(turn) {
   const el = document.getElementById("turn");
+  if (!el) return;
   el.textContent = (turn === player) ? "Sua vez" : "Aguardando...";
 }
 
 function updateScoreMobile() {
   const mine = scores[player] || 0;
   const other = scores[player === 1 ? 2 : 1] || 0;
-  document.getElementById("scoreMobile").textContent =
+  const el = document.getElementById("scoreMobile");
+  if (!el) return;
+  el.textContent =
     `Placar – Você: ${mine} | Outro: ${other}`;
 }
 
 function onEnd(msg) {
+  const el = document.getElementById("turn");
+  if (!el) return;
+
   let txt;
   if (msg.winner === 0) {
     txt = "Fim — Empate!";
@@ -68,7 +146,7 @@ function onEnd(msg) {
   } else {
     txt = "Fim — Você perdeu.";
   }
-  document.getElementById("turn").textContent = txt;
+  el.textContent = txt;
   if (msg.scores) {
     scores = msg.scores;
     updateScoreMobile();
@@ -76,17 +154,39 @@ function onEnd(msg) {
 }
 
 function sendMove(i) {
-  ws.send(JSON.stringify({
+  if (hasParamError) return;
+  if (connState !== "connected") return;
+  if (pendingMove) return;
+
+  const ok = ws.send(JSON.stringify({
     type: "move",
     player,
     cardIndex: i
   }));
+  if (!ok) return;
+
+  pendingMove = { cardIndex: i, timestamp: Date.now() };
+  updateButtonsEnabled(false);
+  moveTimeoutId = setTimeout(() => {
+    // sem resposta do totem dentro do tempo
+    pendingMove = null;
+    updateButtonsEnabled(connState === "connected");
+    const el = document.getElementById("turn");
+    if (el && connState === "connected") {
+      el.textContent = "Sem resposta do totem, tente novamente.";
+    }
+  }, 3000);
 }
 
 const buttonsDiv = document.getElementById("buttons");
-for (let i = 0; i < 12; i++) {
-  const b = document.createElement("button");
-  b.textContent = i + 1;
-  b.onclick = () => sendMove(i);
-  buttonsDiv.appendChild(b);
+if (buttonsDiv) {
+  for (let i = 0; i < 12; i++) {
+    const b = document.createElement("button");
+    b.textContent = i + 1;
+    b.onclick = () => sendMove(i);
+    buttonsDiv.appendChild(b);
+    buttons.push(b);
+  }
+  // estado inicial dos botões
+  updateButtonsEnabled(connState === "connected" && !pendingMove);
 }
