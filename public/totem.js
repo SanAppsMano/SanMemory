@@ -10,7 +10,6 @@ sError.volume = 0.5;
 //   ENGINE / VARS
 // =============================================
 let ws, room, modeSelected = "multi";
-
 const GAME_DURATION_SECONDS = 5 * 60; // 5 minutos de jogo
 
 let ctx, W, H, cards = [], matched = [], revealed = [];
@@ -25,38 +24,42 @@ let lastRevealedCount = 0;
 let particles = [];
 let winnerInfo = null;
 
+// cache de imagens das cartas
+const cardImages = {};
+
 // =============================================
-//   CARTAS / LAYOUT
+//   BOARD / CARTAS
 // =============================================
 function setupBoard(board, totalCards) {
-  cards = board;
-  totalCardsCurrent = totalCards;
+  cards = board || [];
+  totalCardsCurrent = totalCards || cards.length;
   matched = [];
   revealed = [];
   lastMatchedCount = 0;
   lastRevealedCount = 0;
   winnerInfo = null;
 
-  resizeCanvas();
+  const canvas = document.getElementById("board");
+  if (!canvas) return;
+
+  // o HTML original define width/height do canvas (ex.: 350x350)
+  ctx = canvas.getContext("2d");
+  W = canvas.width;
+  H = canvas.height;
+
   draw();
 }
 
-function resizeCanvas() {
-  const canvas = document.getElementById("board");
-  const container = document.getElementById("board-container");
-
-  const rect = container.getBoundingClientRect();
-  W = rect.width;
-  H = rect.height;
-
-  canvas.width = W;
-  canvas.height = H;
-  ctx = canvas.getContext("2d");
+function getGridConfig() {
+  // 12 cartas = 4x3, 24 cartas = 6x4 (mesma lógica do original)
+  if (totalCardsCurrent === 24) {
+    return { cols: 6, rows: 4 };
+  }
+  return { cols: 4, rows: 3 };
 }
 
 function cardRect(index) {
-  const cols = totalCardsCurrent === 12 ? 4 : 6;
-  const rows = totalCardsCurrent === 12 ? 3 : 4;
+  const { cols, rows } = getGridConfig();
 
   const padding = 20;
   const cardW = (W - padding * (cols + 1)) / cols;
@@ -69,6 +72,33 @@ function cardRect(index) {
   const y = padding + row * (cardH + padding);
 
   return { x, y, w: cardW, h: cardH };
+}
+
+function roundedRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function getCardImage(value) {
+  if (!value) return null;
+  if (!cardImages[value]) {
+    const img = new Image();
+    img.src = "cards/" + value + ".jpg";
+    img.onload = () => {
+      draw();
+    };
+    cardImages[value] = img;
+  }
+  return cardImages[value];
 }
 
 function drawCard(index) {
@@ -87,7 +117,7 @@ function drawCard(index) {
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 6;
 
-  // fundo
+  // fundo gradiente
   let grad = ctx.createLinearGradient(rect.x, rect.y, rect.x + rect.w, rect.y + rect.h);
   if (isMatched) {
     grad.addColorStop(0, "#22c55e");
@@ -109,71 +139,82 @@ function drawCard(index) {
   ctx.shadowBlur = 0;
 
   ctx.lineWidth = isMatched ? 4 : 2;
-  ctx.strokeStyle = isMatched ? "rgba(34,197,94,0.7)" :
-                     isRevealed ? "rgba(56,189,248,0.7)" :
-                                  "rgba(148,163,184,0.8)";
+  ctx.strokeStyle = isMatched
+    ? "rgba(34,197,94,0.7)"
+    : isRevealed
+    ? "rgba(56,189,248,0.7)"
+    : "rgba(148,163,184,0.8)";
   ctx.stroke();
 
   // conteúdo
-  ctx.fillStyle = "#e5e7eb";
-  ctx.font = `${Math.floor(rect.h * 0.3)}px system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
+  const img = isMatched || isRevealed ? getCardImage(card.value) : null;
 
-  if (isMatched || isRevealed) {
-    ctx.fillText(card.label || "?", rect.x + rect.w / 2, rect.y + rect.h / 2);
+  if (img && img.complete) {
+    const paddingImg = rect.w * 0.12;
+    const iw = rect.w - paddingImg * 2;
+    const ih = rect.h - paddingImg * 2;
+    ctx.drawImage(img, rect.x + paddingImg, rect.y + paddingImg, iw, ih);
   } else {
-    ctx.font = `${Math.floor(rect.h * 0.4)}px system-ui, sans-serif`;
-    ctx.fillText("?", rect.x + rect.w / 2, rect.y + rect.h / 2);
+    // fallback com texto
+    ctx.fillStyle = "#e5e7eb";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `${Math.floor(rect.h * 0.3)}px system-ui, sans-serif`;
+    const label = isMatched || isRevealed ? (card.label || "?") : "?";
+    ctx.fillText(label, rect.x + rect.w / 2, rect.y + rect.h / 2);
   }
 
   ctx.restore();
 }
 
-function roundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
+// =============================================
+//   PARTÍCULAS / ANIMAÇÃO
+// =============================================
+function spawnMatchParticles(index) {
+  const rect = cardRect(index);
+  const cx = rect.x + rect.w / 2;
+  const cy = rect.y + rect.h / 2;
+
+  for (let i = 0; i < 14; i++) {
+    particles.push({
+      x: cx,
+      y: cy,
+      vx: (Math.random() - 0.5) * 5,
+      vy: (Math.random() - 0.5) * 5,
+      life: 1,
+      size: 4 + Math.random() * 4,
+      color: Math.random() > 0.5 ? "#22c55e" : "#38bdf8"
+    });
+  }
 }
 
-// =============================================
-//   PARTICULAS / VENCEDOR
-// =============================================
 function spawnWinBurst() {
-  particles = [];
-  const centerX = W / 2;
-  const centerY = 80;
+  if (!W || !H) return;
+  const cx = W / 2;
+  const cy = 60;
 
   for (let i = 0; i < 80; i++) {
     const angle = Math.random() * Math.PI * 2;
     const speed = 2 + Math.random() * 4;
     particles.push({
-      x: centerX,
-      y: centerY,
+      x: cx,
+      y: cy,
       vx: Math.cos(angle) * speed,
       vy: Math.sin(angle) * speed,
       life: 1,
-      size: 6 + Math.random() * 8,
+      size: 6 + Math.random() * 6,
       color: Math.random() > 0.5 ? "#22c55e" : "#38bdf8"
     });
   }
 }
 
 function updateParticles(delta) {
-  const decay = 0.9;
+  const friction = 0.9;
   particles.forEach(p => {
     p.x += p.vx * delta * 60;
     p.y += p.vy * delta * 60;
-    p.vx *= decay;
-    p.vy *= decay;
+    p.vx *= friction;
+    p.vy *= friction;
     p.life -= delta * 0.7;
   });
   particles = particles.filter(p => p.life > 0);
@@ -194,59 +235,52 @@ function drawParticles() {
 
 function drawWinnerBanner(delta) {
   if (!winnerInfo) return;
+  const { anim, text, timeLabel } = winnerInfo;
 
+  winnerInfo.anim = Math.min(1, winnerInfo.anim + delta * 1.2);
   const alpha = winnerInfo.anim;
-  const baseY = 40;
-  const targetY = 80;
 
-  winnerInfo.anim += delta * 1.2;
-  if (winnerInfo.anim > 1) winnerInfo.anim = 1;
-
-  const t = 1 - Math.pow(1 - winnerInfo.anim, 3);
-  const y = baseY + (targetY - baseY) * t;
-
-  const text = winnerInfo.text;
-  const timeLabel = winnerInfo.timeLabel || "";
+  const bannerH = 80;
+  const targetY = 40;
+  const startY = -bannerH;
+  const t = 1 - Math.pow(1 - alpha, 3);
+  const y = startY + (targetY - startY) * t;
 
   ctx.save();
-
   ctx.globalAlpha = alpha * 0.95;
-  ctx.fillStyle = "rgba(15,23,42,0.92)";
-  ctx.strokeStyle = "rgba(148,163,184,0.8)";
-  ctx.lineWidth = 2.5;
 
   const paddingX = 32;
-  const paddingY = 18;
   ctx.font = "bold 28px system-ui, sans-serif";
   const textW = ctx.measureText(text).width;
   ctx.font = "16px system-ui, sans-serif";
   const timeW = ctx.measureText(timeLabel).width;
-
   const totalW = Math.max(textW, timeW) + paddingX * 2;
   const x = (W - totalW) / 2;
-  const h = 90;
 
-  roundedRect(ctx, x, y, totalW, h, 18);
+  ctx.fillStyle = "rgba(15,23,42,0.92)";
+  ctx.strokeStyle = "rgba(148,163,184,0.8)";
+  ctx.lineWidth = 2.5;
+
+  roundedRect(ctx, x, y, totalW, bannerH, 18);
   ctx.fill();
   ctx.stroke();
 
   ctx.globalAlpha = 1;
-  ctx.font = "bold 28px system-ui, sans-serif";
-  ctx.fillStyle = "#e5e7eb";
   ctx.textAlign = "center";
 
-  const centerX = x + totalW / 2;
-  ctx.fillText(text, centerX, y + 32);
+  ctx.font = "bold 28px system-ui, sans-serif";
+  ctx.fillStyle = "#e5e7eb";
+  ctx.fillText(text, x + totalW / 2, y + 30);
 
   ctx.font = "16px system-ui, sans-serif";
   ctx.fillStyle = "#a5b4fc";
-  ctx.fillText(timeLabel, centerX, y + 60);
+  ctx.fillText(timeLabel, x + totalW / 2, y + 54);
 
   ctx.restore();
 }
 
 // =============================================
-//   LOOP DE DESENHO
+//   LOOP PRINCIPAL
 // =============================================
 let lastFrameTime = null;
 function loop(timestamp) {
@@ -273,7 +307,7 @@ function loop(timestamp) {
 }
 
 // =============================================
-//   WEBSOCKET E ESTADO
+//   ESTADO / WS
 // =============================================
 function applyState(state) {
   matched = state.matched || [];
@@ -287,10 +321,20 @@ function applyState(state) {
   const newReveals = revealedCount - lastRevealedCount;
 
   if (newMatches > 0) {
-    try { sMatch.currentTime = 0; sMatch.play(); } catch {}
-    spawnWinBurst();
+    try {
+      sMatch.currentTime = 0;
+      sMatch.play();
+    } catch {}
+    // pega o último índice revelado como referência para partículas
+    const lastIndex = revealed[revealed.length - 1];
+    if (typeof lastIndex === "number") {
+      spawnMatchParticles(lastIndex);
+    }
   } else if (newReveals > 0) {
-    try { sError.currentTime = 0; sError.play(); } catch {}
+    try {
+      sError.currentTime = 0;
+      sError.play();
+    } catch {}
   }
 
   lastMatchedCount = matchedCount;
@@ -299,54 +343,23 @@ function applyState(state) {
   draw();
 }
 
-function initWebSocket(mode) {
-  if (!room) return;
+function showTurn(turn, scores) {
+  const p1 = scores?.[1] ?? 0;
+  const p2 = scores?.[2] ?? 0;
 
-  if (ws) {
-    ws.close();
-    ws = null;
+  document.getElementById("scoreP1").textContent = p1;
+  document.getElementById("scoreP2").textContent = p2;
+
+  let texto = "";
+  if (modeSelected === "single") {
+    texto = "Modo 1 Jogador";
+  } else {
+    texto = "Vez do Jogador " + turn;
   }
 
-  resetHUD();
-  winnerInfo = null;
-
-  const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
-
-  ws = createResilientWebSocket(wsUrl, {
-    onOpen() {
-      ws.send(JSON.stringify({
-        type: "start",
-        mode: modeSelected,
-        totalCards: 12
-      }));
-      renderQRs();
-      startTimer();
-    },
-    onMessage(ev) {
-      const msg = JSON.parse(ev.data);
-
-      if (msg.type === "board") setupBoard(msg.board, msg.totalCards);
-
-      if (msg.type === "state") {
-        applyState(msg);
-        if (typeof msg.turn !== "undefined") showTurn(msg.turn, msg.scores);
-      }
-
-      if (msg.type === "turn") showTurn(msg.turn, msg.scores);
-
-      if (msg.type === "end" && !winnerInfo) showWinner(msg);
-    },
-    onClose(ev) { console.log("[TOTEM] WS fechado", ev.code, ev.reason); },
-    onError(err) { console.error("[TOTEM] WS erro", err); }
-  });
-
-  document.getElementById("status").textContent =
-    "Sala " + room + " — " + mode;
+  document.getElementById("status").textContent = texto;
 }
 
-// =============================================
-//   HUD
-// =============================================
 function resetHUD() {
   document.getElementById("timer").textContent = "05:00";
   document.getElementById("scoreP1").textContent = "0";
@@ -396,24 +409,55 @@ function startTimer() {
   }, 1000);
 }
 
-// =============================================
-//   SCORE / TURNO
-// =============================================
-function showTurn(turn, scores) {
-  const p1 = scores?.[1] ?? 0;
-  const p2 = scores?.[2] ?? 0;
+function initWebSocket(mode) {
+  if (!room) return;
 
-  document.getElementById("scoreP1").textContent = p1;
-  document.getElementById("scoreP2").textContent = p2;
-
-  let texto = "";
-  if (modeSelected === "single") {
-    texto = "Modo 1 Jogador";
-  } else {
-    texto = "Vez do Jogador " + turn;
+  if (ws) {
+    ws.close();
+    ws = null;
   }
 
-  document.getElementById("status").textContent = texto;
+  resetHUD();
+  winnerInfo = null;
+
+  const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
+
+  ws = createResilientWebSocket(wsUrl, {
+    onOpen() {
+      ws.send(
+        JSON.stringify({
+          type: "start",
+          mode: modeSelected,
+          totalCards: 12
+        })
+      );
+      renderQRs();
+      startTimer();
+    },
+    onMessage(ev) {
+      const msg = JSON.parse(ev.data);
+
+      if (msg.type === "board") setupBoard(msg.board, msg.totalCards);
+
+      if (msg.type === "state") {
+        applyState(msg);
+        if (typeof msg.turn !== "undefined") showTurn(msg.turn, msg.scores);
+      }
+
+      if (msg.type === "turn") showTurn(msg.turn, msg.scores);
+
+      if (msg.type === "end" && !winnerInfo) showWinner(msg);
+    },
+    onClose(ev) {
+      console.log("[TOTEM] WS fechado", ev.code, ev.reason);
+    },
+    onError(err) {
+      console.error("[TOTEM] WS erro", err);
+    }
+  });
+
+  document.getElementById("status").textContent =
+    "Sala " + room + " — " + mode;
 }
 
 // =============================================
@@ -447,45 +491,6 @@ function renderQRs() {
 }
 
 // =============================================
-//   INIT
-// =============================================
-window.addEventListener("load", () => {
-  room = new URLSearchParams(location.search).get("room") || "sala-1";
-  modeSelected = new URLSearchParams(location.search).get("mode") || "multi";
-
-  const canvas = document.getElementById("board");
-  if (!canvas) return;
-
-  ctx = canvas.getContext("2d");
-  resizeCanvas();
-  window.addEventListener("resize", resizeCanvas);
-
-  loop(performance.now());
-  initWebSocket(modeSelected);
-});
-
-// =============================================
-//   HANDLER DE CLIQUE (NÃO USADO PARA INPUT)
-//   APENAS ANIMAÇÃO / FEEDBACK VISUAL OPCIONAL
-// =============================================
-document.getElementById("board").addEventListener("click", (ev) => {
-  const rect = ev.target.getBoundingClientRect();
-  const x = ev.clientX - rect.left;
-  const y = ev.clientY - rect.top;
-
-  for (let i = 0; i < cards.length; i++) {
-    const r = cardRect(i);
-    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
-      const info = document.getElementById("status");
-      if (info) {
-        info.textContent = "Aguardando jogada dos celulares...";
-      }
-      break;
-    }
-  }
-});
-
-// =============================================
 //   VENCEDOR
 // =============================================
 function showWinner(msg) {
@@ -514,8 +519,47 @@ function showWinner(msg) {
     winner: msg.winner,
     text: textoBanner,
     timeLabel: `${m}:${s}`,
-    anim: 1
+    anim: 0
   };
 
   spawnWinBurst();
 }
+
+// =============================================
+//   INIT
+// =============================================
+window.addEventListener("load", () => {
+  const params = new URLSearchParams(location.search);
+  room = params.get("room") || "sala-1";
+  modeSelected = params.get("mode") || "multi";
+
+  const canvas = document.getElementById("board");
+  if (!canvas) return;
+
+  ctx = canvas.getContext("2d");
+  W = canvas.width;
+  H = canvas.height;
+
+  loop(performance.now());
+  initWebSocket(modeSelected);
+});
+
+// =============================================
+//   CLIQUE NO BOARD (FEEDBACK VISUAL)
+// =============================================
+document.getElementById("board").addEventListener("click", (ev) => {
+  const rect = ev.target.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+
+  for (let i = 0; i < cards.length; i++) {
+    const r = cardRect(i);
+    if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) {
+      const info = document.getElementById("status");
+      if (info) {
+        info.textContent = "Aguardando jogada dos celulares...";
+      }
+      break;
+    }
+  }
+});
