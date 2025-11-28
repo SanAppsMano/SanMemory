@@ -188,7 +188,7 @@ function renderQRs() {
 // =============================================
 let cols = 4, rows = 3;
 
-// NOVO: canvas responsivo
+// canvas responsivo
 function resizeBoardCanvas() {
   const cv = document.getElementById("board");
   if (!cv) return;
@@ -208,7 +208,7 @@ function setupBoard(arr, total) {
   const cv = document.getElementById("board");
   ctx = cv.getContext("2d");
 
-  // agora o tamanho é responsivo
+  // tamanho responsivo
   resizeBoardCanvas();
 
   totalCardsCurrent = arr.length || total || 12;
@@ -304,11 +304,19 @@ function spawnParticles(cardIndex) {
   const c = cards[cardIndex];
 
   const pad = 6;
-  const cw = (W - pad * (cols + 1)) / cols;
-  const ch = (H - pad * (rows + 1)) / rows;
+  const cardScale = 1.15;
+  const baseCw = (W - pad * (cols + 1)) / cols;
+  const baseCh = (H - pad * (rows + 1)) / rows;
+  const cw = baseCw * cardScale;
+  const ch = baseCh * cardScale;
 
-  const cx = pad + c.x * (cw + pad) + cw / 2;
-  const cy = pad + c.y * (ch + pad) + ch / 2;
+  const boardW = cols * cw + pad * (cols - 1);
+  const boardH = rows * ch + pad * (rows - 1);
+  const offsetX = (W - boardW) / 2;
+  const offsetY = (H - boardH) / 2;
+
+  const cx = offsetX + c.x * (cw + pad) + cw / 2;
+  const cy = offsetY + c.y * (ch + pad) + ch / 2;
 
   for (let i = 0; i < 14; i++) {
     particles.push({
@@ -357,21 +365,27 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
 
   const pad = 6;
-  const cw = (W - pad * (cols + 1)) / cols;
-  const ch = (H - pad * (rows + 1)) / rows;
+  const cardScale = 1.15;
+  const baseCw = (W - pad * (cols + 1)) / cols;
+  const baseCh = (H - pad * (rows + 1)) / rows;
+  const cw = baseCw * cardScale;
+  const ch = baseCh * cardScale;
 
-  // ===============================
-  // 1 — DESENHAR CARTAS
-  // ===============================
+  const boardW = cols * cw + pad * (cols - 1);
+  const boardH = rows * ch + pad * (rows - 1);
+  const offsetX = (W - boardW) / 2;
+  const offsetY = (H - boardH) / 2;
+
+  // 1 - desenhar cartas
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
 
-    let x = pad + c.x * (cw + pad);
-    let y = pad + c.y * (ch + pad);
+    let x = offsetX + c.x * (cw + pad);
+    let y = offsetY + c.y * (ch + pad);
 
     ctx.save();
 
-    // ---- animação flip (3D) ----
+    // animação flip
     let flipX = 1;
     if (c.animFlip > 0) {
       flipX = Math.abs(Math.cos((1 - c.animFlip) * Math.PI));
@@ -379,7 +393,7 @@ function draw() {
       if (c.animFlip < 0) c.animFlip = 0;
     }
 
-    // ---- animação shake (erro) ----
+    // animação shake
     let shake = 0;
     if (c.animShake > 0) {
       shake = Math.sin(c.animShake * Math.PI * 6) * 5;
@@ -387,7 +401,7 @@ function draw() {
       if (c.animShake < 0) c.animShake = 0;
     }
 
-    // ---- animação pulse (acerto) ----
+    // animação pulse
     let pulse = 1;
     if (c.animPulse > 0) {
       pulse = 1 + Math.sin(c.animPulse * Math.PI) * 0.18;
@@ -395,7 +409,7 @@ function draw() {
       if (c.animPulse < 0) c.animPulse = 0;
     }
 
-    // ---- glow (acerto) ----
+    // glow
     if (c.animGlow > 0) {
       const g = c.animGlow;
       ctx.shadowColor = "rgba(255,255,100," + g + ")";
@@ -404,7 +418,7 @@ function draw() {
       if (c.animGlow < 0) c.animGlow = 0;
     }
 
-    // ---- fade (desaparecer matched) ----
+    // fade
     let alpha = 1;
     if (c.animFade > 0 && matched.includes(i)) {
       alpha = c.animFade;
@@ -435,9 +449,7 @@ function draw() {
     ctx.globalAlpha = 1;
   }
 
-  // ======================================
-  // 2 — DESENHAR PARTÍCULAS GAMER
-  // ======================================
+  // 2 - partículas
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
@@ -452,9 +464,7 @@ function draw() {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
-  // ======================================
-  // 3 — BANNER DO VENCEDOR
-  // ======================================
+  // 3 - banner do vencedor
   if (winnerInfo && winnerInfo.anim > 0) {
     const alpha = Math.min(1, winnerInfo.anim);
     const bannerW = W * 0.85;
@@ -551,7 +561,7 @@ function showWinner(msg) {
   spawnWinBurst();
 }
 
-// NOVO: reajustar canvas ao redimensionar janela do totem
+// reajustar canvas ao redimensionar janela do totem
 window.addEventListener("resize", () => {
   if (!ctx) return;
   resizeBoardCanvas();
