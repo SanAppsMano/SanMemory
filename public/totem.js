@@ -23,12 +23,23 @@ let lastRevealedCount = 0;
 let particles = [];
 let winnerInfo = null;
 
+// cache de imagens padrão
 const cardImages = {};
+
+// NOVO: imagens personalizadas vindas do controller
+let customCardImages = null;
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
-    img.src = "cards/" + value + ".jpg";
+
+    // NOVO: se houver cartas personalizadas, usa base64
+    if (customCardImages && customCardImages[value - 1]) {
+      img.src = customCardImages[value - 1];
+    } else {
+      img.src = "cards/" + value + ".jpg";
+    }
+
     img.onload = () => draw();
     cardImages[value] = img;
   }
@@ -65,6 +76,12 @@ function startGame(mode) {
     onMessage(ev) {
       const msg = JSON.parse(ev.data);
 
+      // NOVO: receber cartas personalizadas do controller
+      if (msg.type === "uploadCards") {
+        handleCustomCards(msg);
+        return;
+      }
+
       if (msg.type === "board") setupBoard(msg.board, msg.totalCards);
 
       if (msg.type === "state") {
@@ -82,6 +99,21 @@ function startGame(mode) {
 
   document.getElementById("status").textContent =
     "Sala " + room + " — " + mode;
+}
+
+// NOVO: tratar cartas personalizadas
+function handleCustomCards(msg) {
+  if (!Array.isArray(msg.images) || msg.images.length === 0) return;
+
+  // guarda base64 em memória
+  customCardImages = msg.images.slice();
+
+  // limpa cache de imagens para recarregar com as novas
+  for (const k in cardImages) {
+    delete cardImages[k];
+  }
+
+  console.log("[TOTEM] cartas personalizadas recebidas:", customCardImages.length);
 }
 
 // =============================================
