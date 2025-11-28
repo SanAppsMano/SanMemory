@@ -23,17 +23,15 @@ let lastRevealedCount = 0;
 let particles = [];
 let winnerInfo = null;
 
-// cache de imagens padrão
 const cardImages = {};
 
-// NOVO: imagens personalizadas vindas do controller
+// NOVO: imagens personalizadas vindas do controller (base64)
 let customCardImages = null;
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
 
-    // NOVO: se houver cartas personalizadas, usa base64
     if (customCardImages && customCardImages[value - 1]) {
       img.src = customCardImages[value - 1];
     } else {
@@ -76,7 +74,7 @@ function startGame(mode) {
     onMessage(ev) {
       const msg = JSON.parse(ev.data);
 
-      // NOVO: receber cartas personalizadas do controller
+      // NOVO: receber cartas personalizadas do Jogador 1
       if (msg.type === "uploadCards") {
         handleCustomCards(msg);
         return;
@@ -101,14 +99,13 @@ function startGame(mode) {
     "Sala " + room + " — " + mode;
 }
 
-// NOVO: tratar cartas personalizadas
+// NOVO: tratar imagens personalizadas
 function handleCustomCards(msg) {
   if (!Array.isArray(msg.images) || msg.images.length === 0) return;
 
-  // guarda base64 em memória
   customCardImages = msg.images.slice();
 
-  // limpa cache de imagens para recarregar com as novas
+  // limpa cache para recarregar as novas imagens
   for (const k in cardImages) {
     delete cardImages[k];
   }
@@ -391,7 +388,6 @@ function draw() {
     ctx.translate(-cw / 2, -ch / 2);
     ctx.globalAlpha = alpha;
 
-    // desenhar carta
     const isMatched = matched.includes(i);
     const isRevealed = revealed.includes(i);
 
@@ -465,12 +461,8 @@ function draw() {
 
     ctx.restore();
 
-    // diminui bem mais devagar para dar tempo de ler
     winnerInfo.anim -= 0.00055;
     if (winnerInfo.anim < 0) winnerInfo.anim = 0;
-    //só desaparece quando você iniciar outro jogo
-    //const alpha = 1;
-
   }
 }
 
