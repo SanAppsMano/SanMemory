@@ -48,7 +48,7 @@ export class Room {
   }
 
   onMessage(ws, msg) {
-    // NOVO: repassar cartas personalizadas do controller para o totem
+    // novo: repassar cartas personalizadas
     if (msg.type === "uploadCards") {
       this.broadcast(msg);
       return;
