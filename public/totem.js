@@ -1,39 +1,38 @@
 // =============================================
-//   SONS DE ACERTO / ERRO (ORIGINAL)
+//   SONS ORIGINAIS
 // =============================================
 const sMatch = new Audio("sounds/match.wav");
-const sError = new Audio("sounds/error.wav");
+const sError  = new Audio("sounds/error.wav");
 sMatch.volume = 0.5;
 sError.volume = 0.5;
 
 // =============================================
-//   VARIÁVEIS ORIGINAIS
+//   VARS
 // =============================================
 let ws, room, modeSelected = "multi";
+const GAME_DURATION_SECONDS = 5 * 60;
 
-const GAME_DURATION_SECONDS = 5 * 60; // << NOVO: 5 minutos
-
-let ctx, W, H;
 let cards = [];
 let matched = [];
 let revealed = [];
-let totalCardsCurrent = 12;
 let scoresCurrent = { 1: 0, 2: 0 };
+let totalCardsCurrent = 12;
 
+let ctx, W, H;
 let startTime = null;
 let timerInterval = null;
-
-let lastMatchedCount = 0;
-let lastRevealedCount = 0;
-
-let particles = [];
-let winnerInfo = null;
 
 let cols = 4;
 let rows = 3;
 
+let particles = [];
+let winnerInfo = null;
+
+let lastMatchedCount = 0;
+let lastRevealedCount = 0;
+
 // =============================================
-//   FUNÇÃO ORIGINAL: calcular grid por índice
+//   GRID ORIGINAL
 // =============================================
 function updateGrid() {
   if (totalCardsCurrent === 24) {
@@ -46,54 +45,7 @@ function updateGrid() {
 }
 
 // =============================================
-//   FUNÇÃO ORIGINAL: setup do board
-// =============================================
-function setupBoard(board, totalCards) {
-  cards = board || [];
-  totalCardsCurrent = totalCards || cards.length;
-
-  matched = [];
-  revealed = [];
-  winnerInfo = null;
-  lastMatchedCount = 0;
-  lastRevealedCount = 0;
-
-  updateGrid();
-
-  const canvas = document.getElementById("board");
-  ctx = canvas.getContext("2d");
-  W = canvas.width;
-  H = canvas.height;
-
-  draw(); // << RESTAURADO
-}
-
-// =============================================
-//   FUNÇÃO ORIGINAL: desenhar o frame
-// =============================================
-function draw() {
-  loop(performance.now());
-}
-
-// =============================================
-//   FUNÇÕES ORIGINAIS DE DESENHO
-// =============================================
-function roundedRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
-
-// =============================================
-//   PARTÍCULAS (ORIGINAL)
+//   PARTICULAS ORIGINAIS
 // =============================================
 function spawnMatchParticles(index) {
   const pad = 6;
@@ -122,10 +74,10 @@ function spawnMatchParticles(index) {
 function spawnWinBurst() {
   const cx = W / 2;
   const cy = 40;
-
   for (let i = 0; i < 80; i++) {
     const ang = Math.random() * Math.PI * 2;
     const spd = 2 + Math.random() * 4;
+
     particles.push({
       x: cx,
       y: cy,
@@ -165,6 +117,7 @@ function drawParticles() {
 //   LOOP ORIGINAL
 // =============================================
 let lastFrameTime = null;
+
 function loop(timestamp) {
   if (!ctx) return requestAnimationFrame(loop);
 
@@ -178,11 +131,10 @@ function loop(timestamp) {
   const cw = (W - pad * (cols + 1)) / cols;
   const ch = (H - pad * (rows + 1)) / rows;
 
-  // desenhar cartas (ORIGINAL)
+  // cartas
   for (let i = 0; i < cards.length; i++) {
     const colIdx = i % cols;
     const rowIdx = Math.floor(i / cols);
-
     const x = pad + colIdx * (cw + pad);
     const y = pad + rowIdx * (ch + pad);
 
@@ -191,8 +143,6 @@ function loop(timestamp) {
     const isRevealed = revealed.includes(i);
 
     ctx.save();
-    ctx.shadowColor = "rgba(0,0,0,0.35)";
-    ctx.shadowBlur = 16;
 
     let grad = ctx.createLinearGradient(x, y, x + cw, y + ch);
     grad.addColorStop(0, isMatched ? "#22c55e" : isRevealed ? "#0ea5e9" : "#1e293b");
@@ -202,26 +152,16 @@ function loop(timestamp) {
     ctx.fillStyle = grad;
     ctx.fill();
 
-    ctx.shadowColor = "transparent";
-    ctx.lineWidth = isMatched ? 4 : 2;
-    ctx.strokeStyle = isMatched
-      ? "rgba(34,197,94,0.7)"
-      : isRevealed
-      ? "rgba(56,189,248,0.7)"
-      : "rgba(148,163,184,0.8)";
-    ctx.stroke();
-
+    ctx.font = `${Math.floor(ch * 0.3)}px system-ui`;
     ctx.fillStyle = "#e5e7eb";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.font = `${Math.floor(ch * 0.3)}px system-ui`;
 
-    ctx.fillText(isRevealed || isMatched ? card.label : "?", x + cw / 2, y + ch / 2);
+    ctx.fillText(isMatched || isRevealed ? card.label : "?", x + cw / 2, y + ch / 2);
 
     ctx.restore();
   }
 
-  // partículas e banner
   updateParticles(delta);
   drawParticles();
   drawWinnerBanner(delta);
@@ -230,37 +170,60 @@ function loop(timestamp) {
 }
 
 // =============================================
-//   BANNER DE VENCEDOR (ORIGINAL + TIMER)
+//   🔥 DRAW (DEVE vir AQUI) — FIXO, ORIGINAL
+// =============================================
+function draw() {
+  loop(performance.now());
+}
+
+// =============================================
+//   SETUPBOARD (vem DEPOIS do draw)
+// =============================================
+function setupBoard(board, totalCards) {
+  cards = board;
+  totalCardsCurrent = totalCards;
+
+  matched = [];
+  revealed = [];
+  lastMatchedCount = 0;
+  lastRevealedCount = 0;
+  winnerInfo = null;
+
+  updateGrid();
+  draw();
+}
+
+// =============================================
+//   BANNER DE VENCEDOR
 // =============================================
 function drawWinnerBanner(delta) {
   if (!winnerInfo) return;
 
   winnerInfo.anim = Math.min(1, winnerInfo.anim + delta * 1.2);
-  const a = winnerInfo.anim;
 
+  const a = winnerInfo.anim;
   const h = 80;
   const y = -h + (40 + h) * a;
+  const text = winnerInfo.text;
+  const timeLabel = winnerInfo.timeLabel;
 
   ctx.save();
   ctx.globalAlpha = a * 0.95;
 
-  const text = winnerInfo.text;
-  const timeLabel = winnerInfo.timeLabel;
-
   ctx.font = "bold 28px system-ui";
   const wText = ctx.measureText(text).width;
+
   ctx.font = "16px system-ui";
   const wTime = ctx.measureText(timeLabel).width;
 
   const w = Math.max(wText, wTime) + 60;
   const x = (W - w) / 2;
 
+  roundedRect(ctx, x, y, w, h, 18);
   ctx.fillStyle = "rgba(15,23,42,0.92)";
+  ctx.fill();
   ctx.strokeStyle = "rgba(148,163,184,0.8)";
   ctx.lineWidth = 2.5;
-
-  roundedRect(ctx, x, y, w, h, 18);
-  ctx.fill();
   ctx.stroke();
 
   ctx.globalAlpha = 1;
@@ -278,7 +241,7 @@ function drawWinnerBanner(delta) {
 }
 
 // =============================================
-//   HUD ORIGINAL + TIMER 5:00
+//   TIMER REGRESSIVO 5:00
 // =============================================
 function resetHUD() {
   document.getElementById("timer").textContent = "05:00";
@@ -287,30 +250,27 @@ function resetHUD() {
 
   if (timerInterval) clearInterval(timerInterval);
   startTime = null;
-
   scoresCurrent = { 1: 0, 2: 0 };
 }
 
-// =============================================
-//   TIMER REGRESSIVO (NOVO)
-// =============================================
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
+
   startTime = Date.now();
 
   timerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - startTime) / 1000);
     const remaining = GAME_DURATION_SECONDS - elapsed;
 
-    const t = Math.max(0, remaining);
-    const m = String(Math.floor(t / 60)).padStart(2, "0");
-    const s = String(t % 60).padStart(2, "0");
+    const r = Math.max(0, remaining);
+    const m = String(Math.floor(r / 60)).padStart(2, "0");
+    const s = String(r % 60).padStart(2, "0");
 
     document.getElementById("timer").textContent = `${m}:${s}`;
 
     if (remaining <= 0) {
-      const p1 = scoresCurrent[1] || 0;
-      const p2 = scoresCurrent[2] || 0;
+      const p1 = scoresCurrent[1];
+      const p2 = scoresCurrent[2];
 
       let winner =
         modeSelected === "multi"
@@ -323,7 +283,7 @@ function startTimer() {
 }
 
 // =============================================
-//   EXIBIR VENCEDOR (ORIGINAL + TIMER)
+//   RESULTADO
 // =============================================
 function showWinner(msg) {
   if (timerInterval) clearInterval(timerInterval);
@@ -332,14 +292,12 @@ function showWinner(msg) {
   const m = String(Math.floor(sec / 60)).padStart(2, "0");
   const s = String(sec % 60).padStart(2, "0");
 
-  const w = msg.winner;
-
   winnerInfo = {
-    winner: w,
+    winner: msg.winner,
     text:
-      w === 0 && modeSelected === "multi"
+      msg.winner === 0 && modeSelected === "multi"
         ? "Empate!"
-        : `Jogador ${w} venceu!`,
+        : `Jogador ${msg.winner} venceu!`,
     timeLabel: `${m}:${s}`,
     anim: 0
   };
@@ -351,17 +309,14 @@ function showWinner(msg) {
 //   WEBSOCKET ORIGINAL
 // =============================================
 function applyState(state) {
-  matched = state.matched || [];
-  revealed = state.revealed || [];
-  scoresCurrent = state.scores || { 1: 0, 2: 0 };
+  matched = state.matched;
+  revealed = state.revealed;
+  scoresCurrent = state.scores;
 
-  const newMatches = matched.length - lastMatchedCount;
-  const newReveals = revealed.length - lastRevealedCount;
-
-  if (newMatches > 0) {
+  if (matched.length > lastMatchedCount) {
     sMatch.play();
     spawnMatchParticles(revealed[revealed.length - 1]);
-  } else if (newReveals > 0) {
+  } else if (revealed.length > lastRevealedCount) {
     sError.play();
   }
 
@@ -371,6 +326,9 @@ function applyState(state) {
   draw();
 }
 
+// =============================================
+//   STARTGAME ORIGINAL + TIMER
+// =============================================
 function startGame(mode) {
   modeSelected = mode;
   room = crypto.randomUUID().slice(0, 5);
@@ -409,17 +367,17 @@ function renderQRs() {
   const url = new URL(location.href);
   url.searchParams.set("room", room);
 
-  const controller = url.toString().replace("totem.html", "controller.html");
+  const base = url.toString().replace("totem.html", "controller.html");
 
   new QRious({
     element: document.getElementById("qrcode1"),
-    value: controller,
+    value: base,
     size: 200
   });
 
   new QRious({
     element: document.getElementById("qrcode2"),
-    value: controller,
+    value: base,
     size: 200
   });
 }
