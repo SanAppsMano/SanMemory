@@ -304,12 +304,9 @@ function spawnParticles(cardIndex) {
   const c = cards[cardIndex];
 
   const pad = 6;
-  const cardScale = 1.15;
-  const baseCw = (W - pad * (cols + 1)) / cols;
-  const baseCh = (H - pad * (rows + 1)) / rows;
-  const cw = baseCw * cardScale;
-  const ch = baseCh * cardScale;
-
+  const boardSize = Math.min(W, H) * 0.9;
+  const cw = (boardSize - pad * (cols - 1)) / cols;
+  const ch = (boardSize - pad * (rows - 1)) / rows;
   const boardW = cols * cw + pad * (cols - 1);
   const boardH = rows * ch + pad * (rows - 1);
   const offsetX = (W - boardW) / 2;
@@ -365,18 +362,17 @@ function draw() {
   ctx.clearRect(0, 0, W, H);
 
   const pad = 6;
-  const cardScale = 1.15;
-  const baseCw = (W - pad * (cols + 1)) / cols;
-  const baseCh = (H - pad * (rows + 1)) / rows;
-  const cw = baseCw * cardScale;
-  const ch = baseCh * cardScale;
-
+  const boardSize = Math.min(W, H) * 0.9; // 90% do menor lado => cartas grandes
+  const cw = (boardSize - pad * (cols - 1)) / cols;
+  const ch = (boardSize - pad * (rows - 1)) / rows;
   const boardW = cols * cw + pad * (cols - 1);
   const boardH = rows * ch + pad * (rows - 1);
   const offsetX = (W - boardW) / 2;
   const offsetY = (H - boardH) / 2;
 
-  // 1 - desenhar cartas
+  // ===============================
+  // 1 — DESENHAR CARTAS
+  // ===============================
   for (let i = 0; i < cards.length; i++) {
     const c = cards[i];
 
@@ -385,7 +381,7 @@ function draw() {
 
     ctx.save();
 
-    // animação flip
+    // ---- animação flip (3D) ----
     let flipX = 1;
     if (c.animFlip > 0) {
       flipX = Math.abs(Math.cos((1 - c.animFlip) * Math.PI));
@@ -393,7 +389,7 @@ function draw() {
       if (c.animFlip < 0) c.animFlip = 0;
     }
 
-    // animação shake
+    // ---- animação shake (erro) ----
     let shake = 0;
     if (c.animShake > 0) {
       shake = Math.sin(c.animShake * Math.PI * 6) * 5;
@@ -401,7 +397,7 @@ function draw() {
       if (c.animShake < 0) c.animShake = 0;
     }
 
-    // animação pulse
+    // ---- animação pulse (acerto) ----
     let pulse = 1;
     if (c.animPulse > 0) {
       pulse = 1 + Math.sin(c.animPulse * Math.PI) * 0.18;
@@ -409,7 +405,7 @@ function draw() {
       if (c.animPulse < 0) c.animPulse = 0;
     }
 
-    // glow
+    // ---- glow (acerto) ----
     if (c.animGlow > 0) {
       const g = c.animGlow;
       ctx.shadowColor = "rgba(255,255,100," + g + ")";
@@ -418,7 +414,7 @@ function draw() {
       if (c.animGlow < 0) c.animGlow = 0;
     }
 
-    // fade
+    // ---- fade (desaparecer matched) ----
     let alpha = 1;
     if (c.animFade > 0 && matched.includes(i)) {
       alpha = c.animFade;
@@ -449,7 +445,9 @@ function draw() {
     ctx.globalAlpha = 1;
   }
 
-  // 2 - partículas
+  // ======================================
+  // 2 — DESENHAR PARTÍCULAS GAMER
+  // ======================================
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
     p.x += p.vx;
@@ -464,7 +462,9 @@ function draw() {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
-  // 3 - banner do vencedor
+  // ======================================
+  // 3 — BANNER DO VENCEDOR
+  // ======================================
   if (winnerInfo && winnerInfo.anim > 0) {
     const alpha = Math.min(1, winnerInfo.anim);
     const bannerW = W * 0.85;
