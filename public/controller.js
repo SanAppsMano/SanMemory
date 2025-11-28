@@ -103,8 +103,8 @@ function maybeResizeBase64(base64, file) {
       const w = img.naturalWidth || img.width;
       const h = img.naturalHeight || img.height;
 
-      const maxDim = 1600;
-      const maxBytes = 1.5 * 1024 * 1024; // ~1.5MB
+      const maxDim = 600; // mais agressivo: máx 600px no maior lado
+      const maxBytes = 1.5 * 1024 * 1024; // ~1.5MB de arquivo original
       const isBig =
         file.size > maxBytes ||
         w > maxDim ||
@@ -133,7 +133,8 @@ function maybeResizeBase64(base64, file) {
       const ctx = canvas.getContext("2d");
       ctx.drawImage(img, 0, 0, newW, newH);
 
-      const resized = canvas.toDataURL("image/jpeg", 0.85);
+      // qualidade mais baixa pra reduzir bastante o payload
+      const resized = canvas.toDataURL("image/jpeg", 0.75);
       resolve(resized);
     };
     img.onerror = () => resolve(base64);
@@ -207,8 +208,25 @@ async function handleImageUpload(files) {
     return;
   }
 
+  // checar tamanho total do payload antes de enviar
+  const totalChars = images.reduce((sum, b64) => sum + (b64 ? b64.length : 0), 0);
+  // limite conservador: ~800k caracteres (~600KB de dados úteis)
+  const maxChars = 800000;
+
+  if (totalChars > maxChars) {
+    alert(
+      "As imagens ainda ficaram muito pesadas para enviar de uma vez.\n\n" +
+      "Dicas:\n" +
+      "- Use menos imagens, ou\n" +
+      "- Escolha fotos menores (tirar print ou recortar), ou\n" +
+      "- Comprimir as imagens antes.\n\n" +
+      `Tamanho atual: ${(totalChars / 1024).toFixed(0)} KB (limite aproximado: ${(maxChars / 1024).toFixed(0)} KB).`
+    );
+    return;
+  }
+
   try {
-    console.log("[CTRL] enviando uploadCards, imagens =", images.length);
+    console.log("[CTRL] enviando uploadCards, imagens =", images.length, "totalChars =", totalChars);
     ws.send(JSON.stringify({
       type: "uploadCards",
       player,
