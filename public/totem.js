@@ -434,10 +434,10 @@ function draw() {
     ctx.restore();
 
     // diminui bem mais devagar para dar tempo de ler
-    winnerInfo.anim -= 0.001;
-    if (winnerInfo.anim < 0) winnerInfo.anim = 0;
+    //winnerInfo.anim -= 0.00055;
+    //if (winnerInfo.anim < 0) winnerInfo.anim = 0;
     //só desaparece quando você iniciar outro jogo
-   // const alpha = 1;
+    const alpha = 1;
 
   }
 }
