@@ -493,13 +493,13 @@ function draw() {
     ctx.strokeRect(x, y, bannerW, bannerH);
 
     ctx.fillStyle = "#ffd700";
-    ctx.font = "20px Arial";
+    ctx.font = "28px Arial";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.fillText(winnerInfo.text, x + bannerW / 2, y + bannerH / 2 - 12);
 
     ctx.fillStyle = "#ffffff";
-    ctx.font = "14px Arial";
+    ctx.font = "18px Arial";
     ctx.fillText("Tempo: " + winnerInfo.timeLabel, x + bannerW / 2, y + bannerH / 2 + 14);
 
     ctx.restore();
