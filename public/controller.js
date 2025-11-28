@@ -85,44 +85,144 @@ if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
 const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
 /* ============================================================
-   UPLOAD DE IMAGENS – APENAS JOGADOR 1
+   HELPERS PARA IMAGENS (FILE -> BASE64 / REDUÇÃO)
    ============================================================ */
-function handleImageUpload(files) {
+
+function fileToDataURL(file) {
+  return new Promise(resolve => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.readAsDataURL(file);
+  });
+}
+
+function maybeResizeBase64(base64, file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      const w = img.naturalWidth || img.width;
+      const h = img.naturalHeight || img.height;
+
+      const maxDim = 1600;
+      const maxBytes = 1.5 * 1024 * 1024; // ~1.5MB
+      const isBig =
+        file.size > maxBytes ||
+        w > maxDim ||
+        h > maxDim;
+
+      if (!isBig) {
+        return resolve(base64);
+      }
+
+      const ok = confirm(
+        `A imagem "${file.name}" é grande (${w}x${h}, ${(file.size / 1024).toFixed(0)} KB).\n` +
+        `Deseja reduzir para caber melhor no jogo?`
+      );
+
+      if (!ok) {
+        return resolve(base64);
+      }
+
+      const ratio = Math.min(maxDim / w, maxDim / h, 1);
+      const newW = Math.round(w * ratio);
+      const newH = Math.round(h * ratio);
+
+      const canvas = document.createElement("canvas");
+      canvas.width = newW;
+      canvas.height = newH;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, newW, newH);
+
+      const resized = canvas.toDataURL("image/jpeg", 0.85);
+      resolve(resized);
+    };
+    img.onerror = () => resolve(base64);
+    img.src = base64;
+  });
+}
+
+/* ============================================================
+   UPLOAD DE IMAGENS – APENAS JOGADOR 1 + CRÍTICA
+   ============================================================ */
+
+async function handleImageUpload(files) {
   if (player !== 1) {
     alert("Apenas o Jogador 1 pode enviar cartas personalizadas.");
     return;
   }
   if (!files || !files.length) return;
 
-  const readers = [];
-  for (const file of files) {
-    readers.push(
-      new Promise(resolve => {
-        const fr = new FileReader();
-        fr.onload = () => resolve(fr.result);
-        fr.readAsDataURL(file);
-      })
+  const allowed = ["image/jpeg", "image/png", "image/webp"];
+
+  const fileArray = Array.from(files);
+  const validFiles = [];
+  const invalidFiles = [];
+
+  for (const f of fileArray) {
+    let mime = f.type || "";
+
+    if (!mime && f.name) {
+      const lower = f.name.toLowerCase();
+      if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) mime = "image/jpeg";
+      else if (lower.endsWith(".png")) mime = "image/png";
+      else if (lower.endsWith(".webp")) mime = "image/webp";
+    }
+
+    if (!mime || allowed.includes(mime)) {
+      validFiles.push(f);
+    } else {
+      invalidFiles.push({ name: f.name, type: mime });
+    }
+  }
+
+  if (invalidFiles.length > 0) {
+    const nomes = invalidFiles
+      .map(f => `${f.name} (${f.type || "tipo desconhecido"})`)
+      .join("\n");
+    alert(
+      "Algumas imagens não são compatíveis e NÃO serão usadas.\n" +
+      "Use apenas JPG, PNG ou WEBP.\n\n" +
+      "Ignoradas:\n" + nomes
     );
   }
 
-  Promise.all(readers).then(images => {
+  if (!validFiles.length) {
+    alert("Nenhuma imagem compatível foi selecionada. Use JPG, PNG ou WEBP.");
+    return;
+  }
+
+  const images = [];
+  for (const file of validFiles) {
     try {
-      ws.send(JSON.stringify({
-        type: "uploadCards",
-        player,
-        images
-      }));
-      alert("Cartas personalizadas enviadas para o totem!");
+      const base64 = await fileToDataURL(file);
+      const processed = await maybeResizeBase64(base64, file);
+      images.push(processed);
     } catch (e) {
-      console.error("[CTRL] erro ao enviar cartas personalizadas", e);
+      console.error("[CTRL] erro ao processar imagem", file.name, e);
     }
-  });
+  }
+
+  if (!images.length) {
+    alert("Nenhuma imagem pôde ser processada.");
+    return;
+  }
+
+  try {
+    console.log("[CTRL] enviando uploadCards, imagens =", images.length);
+    ws.send(JSON.stringify({
+      type: "uploadCards",
+      player,
+      images
+    }));
+    alert("Cartas personalizadas enviadas para o totem!");
+  } catch (e) {
+    console.error("[CTRL] erro ao enviar cartas personalizadas", e);
+  }
 }
 
 const uploadInput = document.getElementById("uploadCards");
 if (uploadInput) {
   if (player !== 1) {
-    // remove a área de upload se não for o Jogador 1
     const wrapper = uploadInput.closest("#custom-cards-area");
     if (wrapper) wrapper.remove();
   } else {
@@ -136,6 +236,7 @@ if (uploadInput) {
 /* ============================================================
    WEBSOCKET RESILIENTE
    ============================================================ */
+
 const ws = createResilientWebSocket(wsUrl, {
   onOpen(ev) {
     console.log("[CTRL] WS aberto", ev);
@@ -159,10 +260,8 @@ const ws = createResilientWebSocket(wsUrl, {
     if (msg.type === "board") {
       if (!hasSeenBoard) {
         hasSeenBoard = true;
-        // primeira vez: só garante que todos os botões voltem
         applyMatched([]);
       } else {
-        // novo "start" no totem: recarrega o controller (F5)
         location.reload();
       }
       return;
