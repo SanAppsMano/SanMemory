@@ -188,13 +188,28 @@ function renderQRs() {
 // =============================================
 let cols = 4, rows = 3;
 
+// NOVO: canvas responsivo
+function resizeBoardCanvas() {
+  const cv = document.getElementById("board");
+  if (!cv) return;
+
+  const margin = 40;
+  const maxWidth = window.innerWidth - margin;
+  const maxHeight = window.innerHeight - margin;
+  const size = Math.max(240, Math.min(maxWidth, maxHeight));
+
+  cv.width = size;
+  cv.height = size;
+  W = size;
+  H = size;
+}
+
 function setupBoard(arr, total) {
   const cv = document.getElementById("board");
   ctx = cv.getContext("2d");
-  cv.width = 350;
-  cv.height = 350;
-  W = cv.width;
-  H = cv.height;
+
+  // agora o tamanho é responsivo
+  resizeBoardCanvas();
 
   totalCardsCurrent = arr.length || total || 12;
 
@@ -535,3 +550,9 @@ function showWinner(msg) {
 
   spawnWinBurst();
 }
+
+// NOVO: reajustar canvas ao redimensionar janela do totem
+window.addEventListener("resize", () => {
+  if (!ctx) return;
+  resizeBoardCanvas();
+});
