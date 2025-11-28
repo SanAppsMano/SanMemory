@@ -177,25 +177,35 @@ function setupBoard(arr, total) {
 //   APLICAR ESTADO + DISPARAR ANIMAÇÕES
 // =============================================
 function applyState(msg) {
+  const newMatchedCount = msg.matched.length;
+  const newRevealedCount = msg.revealed.length;
 
-  if (msg.matched.length > lastMatchedCount) {
-    sMatch.currentTime = 0; sMatch.play();
+  const hadNewMatch = newMatchedCount > lastMatchedCount;
+  const isErrorClose =
+    lastRevealedCount > 0 &&
+    newRevealedCount === 0 &&
+    !hadNewMatch;
+
+  // som de acerto
+  if (hadNewMatch) {
+    sMatch.currentTime = 0;
+    sMatch.play();
   }
 
-  if (lastRevealedCount === 2 && msg.revealed.length === 0) {
-    sError.currentTime = 0; sError.play();
+  // som de erro
+  if (isErrorClose) {
+    sError.currentTime = 0;
+    sError.play();
   }
 
-  lastMatchedCount = msg.matched.length;
-  lastRevealedCount = msg.revealed.length;
+  lastMatchedCount = newMatchedCount;
+  lastRevealedCount = newRevealedCount;
 
-  matched = msg.matched;
-  revealed = msg.revealed;
-  scoresCurrent = msg.scores;
+  matched = msg.matched || [];
+  revealed = msg.revealed || [];
+  scoresCurrent = msg.scores || scoresCurrent;
 
-  // Disparar animações individuais
   cards.forEach((c, i) => {
-
     // flip abrindo
     if (revealed.includes(i) && c.flip === 0) {
       c.flip = 1;
@@ -208,7 +218,7 @@ function applyState(msg) {
       c.animFlip = 1;
     }
 
-    // matched → partículas + pulse + glow
+    // matched - pulse, glow, fade, partículas
     if (matched.includes(i) && c.animFade === 0) {
       c.animPulse = 1;
       c.animGlow = 1;
@@ -216,14 +226,15 @@ function applyState(msg) {
       c.animFade = 1;
     }
 
-    // erro → shake
-    if (lastRevealedCount === 2 && revealed.length === 0) {
-      if (!matched.includes(i)) {
-        c.animShake = 1;
-      }
+    // erro - shake
+    if (isErrorClose && !matched.includes(i)) {
+      c.animShake = 1;
     }
   });
+
+  updateScores();
 }
+
 
 // =============================================
 //   FUNÇÃO DE PARTÍCULAS (GAMER)
