@@ -9,19 +9,23 @@ if (infoEl) {
 
 let scores = { 1: 0, 2: 0 };
 
-// Estado de conexão e botões
 let connState = "connecting";
 let reconnectTimerId = null;
 let pendingMove = null;
 let moveTimeoutId = null;
 let hasParamError = false;
 const buttons = [];
-
 const connStatusEl = document.getElementById("conn-status");
 
 function updateButtonsEnabled(enabled) {
   const finalEnabled = !!enabled && !hasParamError;
-  for (const b of buttons) {
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i];
+    if (!b) continue;
+    if (b.dataset.matched === "1") {
+      b.disabled = true;
+      continue;
+    }
     b.disabled = !finalEnabled;
   }
 }
@@ -34,7 +38,6 @@ function setConnState(state) {
     else if (state === "reconnecting") connStatusEl.textContent = "Reconectando…";
     else if (state === "offline") connStatusEl.textContent = "Sem conexão";
   }
-  // habilita botões só quando conectado e sem jogada pendente
   updateButtonsEnabled(state === "connected" && !pendingMove);
 }
 
@@ -47,7 +50,24 @@ function clearPendingMove() {
   updateButtonsEnabled(connState === "connected");
 }
 
-// Validação básica dos parâmetros
+function applyMatched(matchedArr) {
+  if (!Array.isArray(matchedArr)) return;
+  const set = new Set(matchedArr);
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i];
+    if (!b) continue;
+    if (set.has(i)) {
+      b.dataset.matched = "1";
+      b.disabled = true;
+      b.style.visibility = "hidden";
+    } else {
+      b.dataset.matched = "0";
+      b.style.visibility = "";
+      b.disabled = !(connState === "connected" && !pendingMove && !hasParamError);
+    }
+  }
+}
+
 if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
   hasParamError = true;
   if (infoEl) {
@@ -58,15 +78,12 @@ if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
   setConnState("connecting");
 }
 
-// URL original do WS
 const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
-// WebSocket resiliente com heartbeat + reconnect
 const ws = createResilientWebSocket(wsUrl, {
   onOpen(ev) {
     console.log("[CTRL] WS aberto", ev);
     if (hasParamError) return;
-    // Mesmo comportamento: enviar "join" quando conecta
     ws.send(JSON.stringify({ type: "join", player }));
     if (reconnectTimerId) {
       clearTimeout(reconnectTimerId);
@@ -84,6 +101,9 @@ const ws = createResilientWebSocket(wsUrl, {
         updateScoreMobile();
       }
       clearPendingMove();
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
     }
 
     if (msg.type === "state") {
@@ -92,18 +112,23 @@ const ws = createResilientWebSocket(wsUrl, {
         scores = msg.scores;
         updateScoreMobile();
       }
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
       clearPendingMove();
     }
 
     if (msg.type === "end") {
       onEnd(msg);
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
       clearPendingMove();
     }
   },
   onClose(ev) {
     console.log("[CTRL] WS fechado", ev.code, ev.reason);
     if (hasParamError) return;
-    // entra em modo reconexão; se não voltar em 10s, considera offline
     setConnState("reconnecting");
     if (reconnectTimerId) {
       clearTimeout(reconnectTimerId);
@@ -130,8 +155,7 @@ function updateScoreMobile() {
   const other = scores[player === 1 ? 2 : 1] || 0;
   const el = document.getElementById("scoreMobile");
   if (!el) return;
-  el.textContent =
-    `Placar – Você: ${mine} | Outro: ${other}`;
+  el.textContent = `Placar – Você: ${mine} | Outro: ${other}`;
 }
 
 function onEnd(msg) {
@@ -158,6 +182,10 @@ function sendMove(i) {
   if (connState !== "connected") return;
   if (pendingMove) return;
 
+  const btn = buttons[i];
+  if (!btn) return;
+  if (btn.dataset.matched === "1") return;
+
   const ok = ws.send(JSON.stringify({
     type: "move",
     player,
@@ -168,7 +196,6 @@ function sendMove(i) {
   pendingMove = { cardIndex: i, timestamp: Date.now() };
   updateButtonsEnabled(false);
   moveTimeoutId = setTimeout(() => {
-    // sem resposta do totem dentro do tempo
     pendingMove = null;
     updateButtonsEnabled(connState === "connected");
     const el = document.getElementById("turn");
@@ -183,10 +210,10 @@ if (buttonsDiv) {
   for (let i = 0; i < 12; i++) {
     const b = document.createElement("button");
     b.textContent = i + 1;
+    b.dataset.matched = "0";
     b.onclick = () => sendMove(i);
     buttonsDiv.appendChild(b);
     buttons.push(b);
   }
-  // estado inicial dos botões
   updateButtonsEnabled(connState === "connected" && !pendingMove);
 }
