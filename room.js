@@ -48,6 +48,12 @@ export class Room {
   }
 
   onMessage(ws, msg) {
+    // NOVO: repassar cartas personalizadas do controller para o totem
+    if (msg.type === "uploadCards") {
+      this.broadcast(msg);
+      return;
+    }
+
     if (msg.type === "join") {
       if (msg.player === 1 || msg.player === 2)
         this.game.players[msg.player] = true;
