@@ -3,7 +3,9 @@ const player = parseInt(params.get("player"));
 const room = params.get("room");
 
 const infoEl = document.getElementById("info");
-if (infoEl) infoEl.textContent = `Jogador ${player} — Sala ${room}`;
+if (infoEl) {
+  infoEl.textContent = "Jogador " + player + " — Sala " + room;
+}
 
 let scores = { 1: 0, 2: 0 };
 
@@ -12,56 +14,69 @@ let reconnectTimerId = null;
 let pendingMove = null;
 let moveTimeoutId = null;
 let hasParamError = false;
-let hasSeenBoard = false;
-
 const buttons = [];
 const connStatusEl = document.getElementById("conn-status");
 
+// usado para detectar reinício de jogo no totem
+let hasSeenBoard = false;
+
 function updateButtonsEnabled(enabled) {
   const finalEnabled = !!enabled && !hasParamError;
-  buttons.forEach(btn => {
-    if (btn.dataset.matched === "1") btn.disabled = true;
-    else btn.disabled = !finalEnabled;
-  });
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i];
+    if (!b) continue;
+    if (b.dataset.matched === "1") {
+      b.disabled = true;
+      continue;
+    }
+    b.disabled = !finalEnabled;
+  }
 }
 
 function setConnState(state) {
   connState = state;
-  if (connStatusEl) connStatusEl.textContent =
-    state === "connecting" ? "Conectando…" :
-    state === "connected" ? "Conectado" :
-    state === "reconnecting" ? "Reconectando…" :
-    "Sem conexão";
-
+  if (connStatusEl) {
+    if (state === "connecting") connStatusEl.textContent = "Conectando…";
+    else if (state === "connected") connStatusEl.textContent = "Conectado";
+    else if (state === "reconnecting") connStatusEl.textContent = "Reconectando…";
+    else if (state === "offline") connStatusEl.textContent = "Sem conexão";
+  }
   updateButtonsEnabled(state === "connected" && !pendingMove);
 }
 
 function clearPendingMove() {
-  if (moveTimeoutId) clearTimeout(moveTimeoutId);
-  moveTimeoutId = null;
+  if (moveTimeoutId) {
+    clearTimeout(moveTimeoutId);
+    moveTimeoutId = null;
+  }
   pendingMove = null;
   updateButtonsEnabled(connState === "connected");
 }
 
 function applyMatched(matchedArr) {
+  if (!Array.isArray(matchedArr)) return;
   const set = new Set(matchedArr);
-  buttons.forEach((btn, idx) => {
-    if (set.has(idx)) {
-      btn.dataset.matched = "1";
-      btn.disabled = true;
-      btn.style.visibility = "hidden";
+  for (let i = 0; i < buttons.length; i++) {
+    const b = buttons[i];
+    if (!b) continue;
+    if (set.has(i)) {
+      b.dataset.matched = "1";
+      b.disabled = true;
+      b.style.visibility = "hidden";
     } else {
-      btn.dataset.matched = "0";
-      btn.style.visibility = "";
-      btn.disabled = !(connState === "connected" && !pendingMove && !hasParamError);
+      b.dataset.matched = "0";
+      b.style.visibility = "";
+      b.disabled = !(connState === "connected" && !pendingMove && !hasParamError);
     }
-  });
+  }
 }
 
-// validação inicial dos parâmetros
-if (!Number.isInteger(player) || !room || (player !== 1 && player !== 2)) {
+// validação de parâmetros
+if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
   hasParamError = true;
-  if (infoEl) infoEl.textContent = "Erro: link inválido. Leia o QR novamente.";
+  if (infoEl) {
+    infoEl.textContent = "Erro: link inválido. Leia o QR novamente.";
+  }
   setConnState("offline");
 } else {
   setConnState("connecting");
@@ -70,46 +85,77 @@ if (!Number.isInteger(player) || !room || (player !== 1 && player !== 2)) {
 const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
 /* ============================================================
-   UPLOAD DE FOTOS PELO CELULAR → envia para TOTEM
+   NOVO: upload de imagens do celular → cartas personalizadas
    ============================================================ */
-function handleImageUpload(files) {
-  const readerPromises = Array.from(files).map(file => {
-    return new Promise(res => {
-      const fr = new FileReader();
-      fr.onload = () => res(fr.result);
-      fr.readAsDataURL(file);
-    });
-  });
 
-  Promise.all(readerPromises).then(images => {
-    ws.send(JSON.stringify({ type: "uploadCards", player, images }));
-    alert("Cartas personalizadas enviadas para o totem!");
+function handleImageUpload(files) {
+  if (!files || !files.length) return;
+
+  const readers = [];
+  for (const file of files) {
+    readers.push(
+      new Promise(resolve => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.readAsDataURL(file);
+      })
+    );
+  }
+
+  Promise.all(readers).then(images => {
+    try {
+      ws.send(JSON.stringify({
+        type: "uploadCards",
+        player,
+        images
+      }));
+      alert("Cartas personalizadas enviadas para o totem!");
+    } catch (e) {
+      console.error("[CTRL] erro ao enviar cartas personalizadas", e);
+    }
   });
 }
 
 const uploadInput = document.getElementById("uploadCards");
-if (uploadInput) uploadInput.onchange = e => handleImageUpload(e.target.files);
+if (uploadInput) {
+  uploadInput.addEventListener("change", e => {
+    handleImageUpload(e.target.files);
+    // limpa o input para permitir enviar o mesmo arquivo novamente, se quiser
+    uploadInput.value = "";
+  });
+}
 
 /* ============================================================
-   WEBSOCKET RESILIENTE
+   WEBSOCKET RESILIENTE (origem preservada)
    ============================================================ */
+
 const ws = createResilientWebSocket(wsUrl, {
-  onOpen() {
+  onOpen(ev) {
+    console.log("[CTRL] WS aberto", ev);
     if (hasParamError) return;
     ws.send(JSON.stringify({ type: "join", player }));
-    if (reconnectTimerId) clearTimeout(reconnectTimerId);
+    if (reconnectTimerId) {
+      clearTimeout(reconnectTimerId);
+      reconnectTimerId = null;
+    }
     setConnState("connected");
   },
-
   onMessage(e) {
     const msg = JSON.parse(e.data);
 
-    // reinício do jogo no TOTEM → recarregar controller
+    // NOVO: ignorar eco do upload de cartas no próprio controle
+    if (msg.type === "uploadCards") {
+      return;
+    }
+
+    // sempre que o totem começa um novo jogo, o DO manda "board"
     if (msg.type === "board") {
       if (!hasSeenBoard) {
         hasSeenBoard = true;
+        // primeira vez: só garante que todos os botões voltem
         applyMatched([]);
       } else {
+        // novo "start" no totem: recarrega o controller (F5)
         location.reload();
       }
       return;
@@ -117,68 +163,81 @@ const ws = createResilientWebSocket(wsUrl, {
 
     if (msg.type === "turn") {
       updateTurn(msg.turn);
-      if (msg.scores) { scores = msg.scores; updateScoreMobile(); }
-      if (msg.matched) applyMatched(msg.matched);
+      if (msg.scores) {
+        scores = msg.scores;
+        updateScoreMobile();
+      }
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
       clearPendingMove();
-      return;
     }
 
     if (msg.type === "state") {
       updateTurn(msg.turn);
-      if (msg.scores) { scores = msg.scores; updateScoreMobile(); }
-      if (msg.matched) applyMatched(msg.matched);
+      if (msg.scores) {
+        scores = msg.scores;
+        updateScoreMobile();
+      }
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
       clearPendingMove();
-      return;
     }
 
     if (msg.type === "end") {
       onEnd(msg);
-      if (msg.matched) applyMatched(msg.matched);
+      if (Array.isArray(msg.matched)) {
+        applyMatched(msg.matched);
+      }
       clearPendingMove();
-      return;
     }
   },
-
-  onClose() {
+  onClose(ev) {
+    console.log("[CTRL] WS fechado", ev.code, ev.reason);
     if (hasParamError) return;
     setConnState("reconnecting");
-
+    if (reconnectTimerId) {
+      clearTimeout(reconnectTimerId);
+    }
     reconnectTimerId = setTimeout(() => {
-      if (connState === "reconnecting") setConnState("offline");
+      if (connState === "reconnecting") {
+        setConnState("offline");
+      }
     }, 10000);
   },
-
   onError(err) {
-    console.error("WS Error:", err);
+    console.error("[CTRL] WS erro", err);
   }
 });
-
-/* ============================================================
-   FUNÇÕES DE UI
-   ============================================================ */
 
 function updateTurn(turn) {
   const el = document.getElementById("turn");
   if (!el) return;
-  el.textContent = turn === player ? "Sua vez" : "Aguardando...";
+  el.textContent = (turn === player) ? "Sua vez" : "Aguardando...";
 }
 
 function updateScoreMobile() {
   const mine = scores[player] || 0;
   const other = scores[player === 1 ? 2 : 1] || 0;
   const el = document.getElementById("scoreMobile");
-  if (el) el.textContent = `Placar – Você: ${mine} | Outro: ${other}`;
+  if (!el) return;
+  el.textContent = `Placar – Você: ${mine} | Outro: ${other}`;
 }
 
 function onEnd(msg) {
   const el = document.getElementById("turn");
   if (!el) return;
 
-  el.textContent =
-    msg.winner === 0 ? "Empate" :
-    msg.winner === player ? "Você venceu!" :
-    "Você perdeu.";
-
+  let txt;
+  if (msg.winner === 0) {
+    txt = "Fim — Empate!";
+  } else if (msg.winner === player) {
+    txt = "Fim — Você venceu!";
+  } else {
+    txt = "Fim — Você perdeu.";
+  }
+  el.textContent = txt;
   if (msg.scores) {
     scores = msg.scores;
     updateScoreMobile();
@@ -186,21 +245,30 @@ function onEnd(msg) {
 }
 
 function sendMove(i) {
-  if (hasParamError || connState !== "connected" || pendingMove) return;
+  if (hasParamError) return;
+  if (connState !== "connected") return;
+  if (pendingMove) return;
 
   const btn = buttons[i];
-  if (!btn || btn.dataset.matched === "1") return;
+  if (!btn) return;
+  if (btn.dataset.matched === "1") return;
 
-  ws.send(JSON.stringify({ type: "move", player, cardIndex: i }));
+  const ok = ws.send(JSON.stringify({
+    type: "move",
+    player,
+    cardIndex: i
+  }));
+  if (!ok) return;
 
-  pendingMove = true;
+  pendingMove = { cardIndex: i, timestamp: Date.now() };
   updateButtonsEnabled(false);
-
   moveTimeoutId = setTimeout(() => {
     pendingMove = null;
     updateButtonsEnabled(connState === "connected");
     const el = document.getElementById("turn");
-    if (el) el.textContent = "Sem resposta do totem, tente novamente.";
+    if (el && connState === "connected") {
+      el.textContent = "Sem resposta do totem, tente novamente.";
+    }
   }, 3000);
 }
 
@@ -214,6 +282,5 @@ if (buttonsDiv) {
     buttonsDiv.appendChild(b);
     buttons.push(b);
   }
-
-  updateButtonsEnabled(connState === "connected");
+  updateButtonsEnabled(connState === "connected" && !pendingMove);
 }
