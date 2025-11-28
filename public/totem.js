@@ -483,7 +483,7 @@ document.getElementById("board").addEventListener("click", (ev) => {
       break;
     }
   }
-}
+});
 
 // =============================================
 //   VENCEDOR
