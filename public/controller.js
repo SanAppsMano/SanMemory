@@ -17,6 +17,9 @@ let hasParamError = false;
 const buttons = [];
 const connStatusEl = document.getElementById("conn-status");
 
+// usado para detectar reinício de jogo no totem
+let hasSeenBoard = false;
+
 function updateButtonsEnabled(enabled) {
   const finalEnabled = !!enabled && !hasParamError;
   for (let i = 0; i < buttons.length; i++) {
@@ -68,6 +71,7 @@ function applyMatched(matchedArr) {
   }
 }
 
+// validação de parâmetros
 if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
   hasParamError = true;
   if (infoEl) {
@@ -94,16 +98,29 @@ const ws = createResilientWebSocket(wsUrl, {
   onMessage(e) {
     const msg = JSON.parse(e.data);
 
+    // sempre que o totem começa um novo jogo, o DO manda "board"
+    if (msg.type === "board") {
+      if (!hasSeenBoard) {
+        hasSeenBoard = true;
+        // primeira vez: só garante que todos os botões voltem
+        applyMatched([]);
+      } else {
+        // novo "start" no totem: recarrega o controller (F5)
+        location.reload();
+      }
+      return;
+    }
+
     if (msg.type === "turn") {
       updateTurn(msg.turn);
       if (msg.scores) {
         scores = msg.scores;
         updateScoreMobile();
       }
-      clearPendingMove();
       if (Array.isArray(msg.matched)) {
         applyMatched(msg.matched);
       }
+      clearPendingMove();
     }
 
     if (msg.type === "state") {
