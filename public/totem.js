@@ -434,7 +434,7 @@ function draw() {
     ctx.restore();
 
     // diminui bem mais devagar para dar tempo de ler
-    winnerInfo.anim -= 0.002;
+    winnerInfo.anim -= 0.001;
     if (winnerInfo.anim < 0) winnerInfo.anim = 0;
 
   }
