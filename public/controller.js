@@ -85,10 +85,13 @@ if (!Number.isInteger(player) || (player !== 1 && player !== 2) || !room) {
 const wsUrl = location.origin.replace("http", "ws") + "/ws/" + room;
 
 /* ============================================================
-   NOVO: upload de imagens do celular → cartas personalizadas
+   UPLOAD DE IMAGENS – APENAS JOGADOR 1
    ============================================================ */
-
 function handleImageUpload(files) {
+  if (player !== 1) {
+    alert("Apenas o Jogador 1 pode enviar cartas personalizadas.");
+    return;
+  }
   if (!files || !files.length) return;
 
   const readers = [];
@@ -118,17 +121,21 @@ function handleImageUpload(files) {
 
 const uploadInput = document.getElementById("uploadCards");
 if (uploadInput) {
-  uploadInput.addEventListener("change", e => {
-    handleImageUpload(e.target.files);
-    // limpa o input para permitir enviar o mesmo arquivo novamente, se quiser
-    uploadInput.value = "";
-  });
+  if (player !== 1) {
+    // remove a área de upload se não for o Jogador 1
+    const wrapper = uploadInput.closest("#custom-cards-area");
+    if (wrapper) wrapper.remove();
+  } else {
+    uploadInput.addEventListener("change", e => {
+      handleImageUpload(e.target.files);
+      uploadInput.value = "";
+    });
+  }
 }
 
 /* ============================================================
-   WEBSOCKET RESILIENTE (origem preservada)
+   WEBSOCKET RESILIENTE
    ============================================================ */
-
 const ws = createResilientWebSocket(wsUrl, {
   onOpen(ev) {
     console.log("[CTRL] WS aberto", ev);
@@ -143,7 +150,7 @@ const ws = createResilientWebSocket(wsUrl, {
   onMessage(e) {
     const msg = JSON.parse(e.data);
 
-    // NOVO: ignorar eco do upload de cartas no próprio controle
+    // eco do upload, o controle não precisa reagir
     if (msg.type === "uploadCards") {
       return;
     }
