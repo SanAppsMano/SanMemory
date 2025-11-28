@@ -25,15 +25,16 @@ let winnerInfo = null;
 
 const cardImages = {};
 
-// NOVO: imagens personalizadas vindas do controller (base64)
-let customCardImages = null;
+// NOVO: mapa de imagens personalizadas por valor da carta
+let customCardMap = {};
 
 function getCardImage(value) {
   if (!cardImages[value]) {
     const img = new Image();
 
-    if (customCardImages && customCardImages[value - 1]) {
-      img.src = customCardImages[value - 1];
+    // se tiver imagem personalizada para esse valor, usa
+    if (customCardMap[value]) {
+      img.src = customCardMap[value];
     } else {
       img.src = "cards/" + value + ".jpg";
     }
@@ -74,7 +75,7 @@ function startGame(mode) {
     onMessage(ev) {
       const msg = JSON.parse(ev.data);
 
-      // NOVO: receber cartas personalizadas do Jogador 1
+      // receber cartas personalizadas do Jogador 1
       if (msg.type === "uploadCards") {
         handleCustomCards(msg);
         return;
@@ -103,14 +104,28 @@ function startGame(mode) {
 function handleCustomCards(msg) {
   if (!Array.isArray(msg.images) || msg.images.length === 0) return;
 
-  customCardImages = msg.images.slice();
+  const images = msg.images.slice(); // cópia
+  customCardMap = {};
+
+  // quantos pares existem no jogo atual
+  const pairs = Math.max(1, Math.floor((totalCardsCurrent || 12) / 2));
+
+  for (let value = 1; value <= pairs; value++) {
+    // distribui as imagens em loop se tiver menos do que pares
+    const imgIndex = (value - 1) % images.length;
+    customCardMap[value] = images[imgIndex];
+  }
 
   // limpa cache para recarregar as novas imagens
   for (const k in cardImages) {
     delete cardImages[k];
   }
 
-  console.log("[TOTEM] cartas personalizadas recebidas:", customCardImages.length);
+  console.log("[TOTEM] cartas personalizadas ativas para valores 1.." + pairs);
+  const statusEl = document.getElementById("status");
+  if (statusEl) {
+    statusEl.textContent = `Sala ${room} — ${modeSelected} · Cartas personalizadas ativas`;
+  }
 }
 
 // =============================================
@@ -382,7 +397,6 @@ function draw() {
       if (c.animFade < 0) c.animFade = 0;
     }
 
-    // aplicar transformações
     ctx.translate(x + cw / 2 + shake, y + ch / 2);
     ctx.scale(flipX * pulse, pulse);
     ctx.translate(-cw / 2, -ch / 2);
