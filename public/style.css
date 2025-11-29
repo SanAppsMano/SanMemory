@@ -11,6 +11,12 @@ body{
   text-align:center;
   padding:14px;
 }
+#board{
+  width:100%;
+  background:radial-gradient(circle at 30% 20%, #1a1a1f, #0d0d10 55%);
+  border-radius:18px;
+  box-shadow:0 22px 55px rgba(0,0,0,0.5), 0 0 0 2px rgba(0,225,255,0.08);
+}
 button{
   padding:12px 20px;
   border:0;
@@ -130,4 +136,38 @@ canvas{
   .qr-card{
     min-width:130px;
   }
+}
+
+/* Tela cheia focada apenas no tabuleiro */
+body.fullscreen-active{
+  background:#05060b;
+  overflow:hidden;
+}
+body.fullscreen-active .container{
+  max-width:100vw;
+  width:100vw;
+  height:100vh;
+  padding:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:center;
+}
+body.fullscreen-active #board{
+  width:min(100vw, 100vh);
+  height:min(100vw, 100vh);
+  max-width:min(100vw, 100vh);
+  max-height:min(100vw, 100vh);
+  border-radius:0;
+  box-shadow:0 10px 40px rgba(0,0,0,0.7);
+}
+body.fullscreen-active h2,
+body.fullscreen-active button,
+body.fullscreen-active #hud,
+body.fullscreen-active #status,
+body.fullscreen-active #record,
+body.fullscreen-active #qr-section,
+body.fullscreen-active .qr-hint,
+body.fullscreen-active .custom-indicator{
+  display:none !important;
 }
