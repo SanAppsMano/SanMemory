@@ -148,6 +148,11 @@ function maybeResizeBase64(base64, file) {
 
 async function handleImageUpload(files) {
   if (player !== 1) {
+    if (!ws || ws.readyState !== 1) {
+    alert("Conexão com o Totem não está ativa. Aguarde conectar e tente novamente.");
+    return;
+  }
+
     alert("Apenas o Jogador 1 pode enviar cartas personalizadas.");
     return;
   }
