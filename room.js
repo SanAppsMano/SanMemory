@@ -48,6 +48,12 @@ export class Room {
   }
 
   onMessage(ws, msg) {
+    // responder heartbeats do cliente para evitar queda por inatividade
+    if (msg.type === "__ping") {
+      try { ws.send(JSON.stringify({ type: "__pong" })); } catch {}
+      return;
+    }
+
     // novo: repassar cartas personalizadas
     if (msg.type === "uploadCards") {
       this.broadcast(msg);
