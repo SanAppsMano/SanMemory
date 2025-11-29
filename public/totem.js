@@ -629,7 +629,18 @@ window.addEventListener("load", () => {
   const cv = document.getElementById("board");
   if (!cv) return;
   cv.addEventListener("click", () => {
-    if (!isFullscreenActive()) enterFullscreen();
+    if (!isFullscreenActive()) {
+      enterFullscreen();
+    } else {
+      // dois toques rápidos para sair
+      const now = Date.now();
+      if (!cv.__lastTap) cv.__lastTap = 0;
+      const delta = now - cv.__lastTap;
+      cv.__lastTap = now;
+      if (delta < 450) {
+        exitFullscreen();
+      }
+    }
   });
 });
 
