@@ -208,6 +208,12 @@ async function handleImageUpload(files) {
     return;
   }
 
+  // garantir que há conexão ativa com o totem antes de enviar
+  if (hasParamError || connState !== "connected" || ws.readyState !== WebSocket.OPEN) {
+    alert("Sem conexão com o totem. Confira o QR/código da sala e tente novamente.");
+    return;
+  }
+
   // checar tamanho total do payload antes de enviar
   const totalChars = images.reduce((sum, b64) => sum + (b64 ? b64.length : 0), 0);
   // limite conservador: ~800k caracteres (~600KB de dados úteis)
@@ -227,11 +233,15 @@ async function handleImageUpload(files) {
 
   try {
     console.log("[CTRL] enviando uploadCards, imagens =", images.length, "totalChars =", totalChars);
-    ws.send(JSON.stringify({
+    const ok = ws.send(JSON.stringify({
       type: "uploadCards",
       player,
       images
     }));
+    if (!ok) {
+      alert("Não foi possível enviar as cartas. Verifique a conexão e tente novamente.");
+      return;
+    }
     alert("Cartas personalizadas enviadas para o totem!");
   } catch (e) {
     console.error("[CTRL] erro ao enviar cartas personalizadas", e);
