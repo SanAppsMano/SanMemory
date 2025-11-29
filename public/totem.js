@@ -205,10 +205,12 @@ function resizeBoardCanvas() {
   const cv = document.getElementById("board");
   if (!cv) return;
 
-  const margin = 40;
+  const isFs = document.body.classList.contains("fullscreen-active");
+  const margin = isFs ? 8 : 40;
   const maxWidth = window.innerWidth - margin;
   const maxHeight = window.innerHeight - margin;
-  const size = Math.max(240, Math.min(maxWidth, maxHeight));
+  const minSize = isFs ? 320 : 240;
+  const size = Math.max(minSize, Math.min(maxWidth, maxHeight));
 
   cv.width = size;
   cv.height = size;
@@ -448,7 +450,12 @@ function draw() {
     const isRevealed = revealed.includes(i);
 
     ctx.fillStyle = isMatched ? "#0a0" : (isRevealed ? "#999" : "#222");
+    ctx.shadowColor = "rgba(0,0,0,0.45)";
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 6;
     ctx.fillRect(0, 0, cw, ch);
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetY = 0;
 
     ctx.strokeStyle = "#fff";
     ctx.strokeRect(0, 0, cw, ch);
@@ -577,6 +584,7 @@ function showWinner(msg) {
   };
 
   spawnWinBurst();
+  exitFullscreen();
 }
 
 // sinal discreto de cartas personalizadas ativas
@@ -585,6 +593,45 @@ function showCustomIndicator() {
   if (!el) return;
   el.style.display = "inline-block";
 }
+
+// =========================
+// FULLSCREEN (canvas click)
+// =========================
+function isFullscreenActive() {
+  return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function enterFullscreen() {
+  const el = document.documentElement;
+  if (isFullscreenActive()) return;
+  if (el.requestFullscreen) el.requestFullscreen().catch(() => {});
+  else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+  setTimeout(syncFullscreenClass, 150);
+}
+
+function exitFullscreen() {
+  if (!isFullscreenActive()) return;
+  if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+  else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  setTimeout(syncFullscreenClass, 150);
+}
+
+function syncFullscreenClass() {
+  const active = isFullscreenActive();
+  document.body.classList.toggle("fullscreen-active", active);
+  resizeBoardCanvas();
+}
+
+document.addEventListener("fullscreenchange", syncFullscreenClass);
+document.addEventListener("webkitfullscreenchange", syncFullscreenClass);
+
+window.addEventListener("load", () => {
+  const cv = document.getElementById("board");
+  if (!cv) return;
+  cv.addEventListener("click", () => {
+    if (!isFullscreenActive()) enterFullscreen();
+  });
+});
 
 // reajustar canvas ao redimensionar janela do totem
 window.addEventListener("resize", () => {
