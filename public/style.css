@@ -106,6 +106,18 @@ canvas{
   margin-top:8px;
 }
 
+.custom-indicator{
+  display:inline-block;
+  background:#0f2c18;
+  color:#98f7b7;
+  border:1px solid #1fa34a;
+  border-radius:999px;
+  padding:4px 10px;
+  font-size:11px;
+  margin:6px 0 2px;
+  box-shadow:0 0 10px rgba(31,163,74,0.25);
+}
+
 /* Responsivo */
 @media (max-width:480px){
   .container{
