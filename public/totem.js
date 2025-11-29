@@ -73,7 +73,6 @@ function startGame(mode) {
         totalCards: 12
       }));
       renderQRs();
-      startTimer();
     },
     onMessage(ev) {
       const msg = JSON.parse(ev.data);
@@ -125,6 +124,7 @@ function handleCustomCards(msg) {
   }
 
   console.log("[TOTEM] cartas personalizadas ativas para valores 1.." + pairs);
+  showCustomIndicator();
   const statusEl = document.getElementById("status");
   if (statusEl) {
     statusEl.textContent = `Sala ${room} — ${modeSelected} · Cartas personalizadas ativas`;
@@ -145,18 +145,27 @@ function resetHUD() {
 
   if (timerInterval) clearInterval(timerInterval);
   startTime = null;
+  timerInterval = null;
   scoresCurrent = { 1: 0, 2: 0 };
 }
 
 function startTimer() {
+  if (startTime) return;
   startTime = Date.now();
-  timerInterval = setInterval(() => {
-    if (!startTime) return;
-    const sec = Math.floor((Date.now() - startTime) / 1000);
-    const m = String(Math.floor(sec / 60)).padStart(2, "0");
-    const s = String(sec % 60).padStart(2, "0");
-    document.getElementById("timer").textContent = `${m}:${s}`;
-  }, 1000);
+  if (timerInterval) clearInterval(timerInterval);
+  timerInterval = setInterval(updateTimerLabel, 1000);
+  updateTimerLabel();
+}
+
+function updateTimerLabel() {
+  if (!startTime) {
+    document.getElementById("timer").textContent = "00:00";
+    return;
+  }
+  const sec = Math.floor((Date.now() - startTime) / 1000);
+  const m = String(Math.floor(sec / 60)).padStart(2, "0");
+  const s = String(sec % 60).padStart(2, "0");
+  document.getElementById("timer").textContent = `${m}:${s}`;
 }
 
 // =============================================
@@ -244,6 +253,11 @@ function setupBoard(arr, total) {
 function applyState(msg) {
   const newMatchedCount = msg.matched.length;
   const newRevealedCount = msg.revealed.length;
+
+  // inicia o cronômetro apenas na primeira virada de carta
+  if (!startTime && Array.isArray(msg.revealed) && msg.revealed.length > 0) {
+    startTimer();
+  }
 
   const hadNewMatch = newMatchedCount > lastMatchedCount;
   const isErrorClose =
@@ -563,6 +577,13 @@ function showWinner(msg) {
   };
 
   spawnWinBurst();
+}
+
+// sinal discreto de cartas personalizadas ativas
+function showCustomIndicator() {
+  const el = document.getElementById("customCardsIndicator");
+  if (!el) return;
+  el.style.display = "inline-block";
 }
 
 // reajustar canvas ao redimensionar janela do totem
